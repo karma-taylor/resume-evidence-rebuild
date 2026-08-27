@@ -1,0 +1,102 @@
+identity:
+  name: Example Candidate
+  phone: "+1 555 010 0100"
+  email: sample@example.com
+  portfolio_url: https://example.invalid/portfolio
+  location: Example City
+  market: NA
+education:
+  - school: Example Institute
+    degree: MSc
+    major: Information Systems
+    start: "2020"
+    end: "2022"
+employment:
+  - employer: Example Operations Ltd.
+    title: Delivery Manager
+    start: "2022.07"
+    end: Present
+    summary: Coordinates business and technical delivery.
+certifications: [Example Cloud AI Professional]
+projects:
+  - id: work-calendar
+    title: 虚构排班协同工具
+    start: "2024.09"
+    end: Present
+    tags: [React, API]
+    claims:
+      - id: cal-context
+        kind: context
+        text: 任务周期、角色时间窗和冲突状态均在虚构演示数据中建模。
+        source: synthetic-fixture
+        scope: synthetic only
+        confidence: verified
+        allowed_for_resume: true
+      - id: cal-control
+        kind: control
+        text: 修订令牌拒绝并发写入，并保留虚构的审计记录。
+        source: synthetic-fixture
+        scope: synthetic only
+        confidence: verified
+        allowed_for_resume: true
+      - id: cal-delivery
+        kind: delivery
+        text: 演示提供写入前预览和结构化校验错误返回机制。
+        source: synthetic-fixture
+        scope: synthetic only
+        confidence: verified
+        allowed_for_resume: true
+  - id: hybrid-rag
+    title: 虚构检索问答工具
+    start: "2024.10"
+    end: Present
+    tags: [BM25, Reranker]
+    claims:
+      - id: rag-context
+        kind: context
+        text: 虚构检索演示处理术语差异与访问权限约束问题。
+        source: synthetic-fixture
+        scope: synthetic only
+        confidence: verified
+        allowed_for_resume: true
+      - id: rag-control
+        kind: control
+        text: ACL 优先过滤位于检索之前，并保留证据引用关联。
+        source: synthetic-fixture
+        scope: synthetic only
+        confidence: verified
+        allowed_for_resume: true
+      - id: rag-metric
+        kind: metric
+        text: 合成评测结果明确标记为非生产环境范围数据。
+        source: synthetic-fixture
+        scope: synthetic only
+        confidence: bounded
+        allowed_for_resume: true
+  - id: sales-agent
+    title: 虚构销售流程 Agent
+    start: "2024.11"
+    end: Present
+    tags: [Pydantic, E2E]
+    claims:
+      - id: sales-context
+        kind: context
+        text: 虚构智能体演示分离信息提取、建议与草稿生成步骤。
+        source: synthetic-fixture
+        scope: synthetic only
+        confidence: verified
+        allowed_for_resume: true
+      - id: sales-control
+        kind: control
+        text: 当来源证据缺失时，结构化校验阻断草稿生成流程。
+        source: synthetic-fixture
+        scope: synthetic only
+        confidence: verified
+        allowed_for_resume: true
+      - id: sales-delivery
+        kind: delivery
+        text: 每一份生成草稿仍必须经过人工复核后方可使用。
+        source: synthetic-fixture
+        scope: synthetic only
+        confidence: verified
+        allowed_for_resume: true

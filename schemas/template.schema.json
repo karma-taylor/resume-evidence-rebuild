@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Resume Role Template",
+  "type": "object",
+  "required": ["id", "target_role", "market", "project_ids", "layout"],
+  "properties": {
+    "id": {"type": "string"}, "target_role": {"type": "string"}, "market": {"enum": ["CN", "NA", "FOREIGN"]},
+    "project_ids": {"type": "array", "minItems": 3, "maxItems": 4, "items": {"type": "string"}},
+    "layout": {"type": "object", "required": ["page", "columns", "min_body_pt"], "properties": {"page": {"const": "A4"}, "columns": {"const": 1}, "min_body_pt": {"type": "number", "minimum": 10}}}
+  }
+}

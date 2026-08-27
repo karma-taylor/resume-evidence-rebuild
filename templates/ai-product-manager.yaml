@@ -1,0 +1,15 @@
+id: ai-product-manager
+target_role: Enterprise AI Product Manager
+market: CN
+project_ids: [hybrid-rag, resume-harness, sales-agent]
+sections: [profile, employment, projects, education-certifications]
+layout:
+  page: A4
+  columns: 1
+  min_body_pt: 10
+  body_leading_pt: 15
+selection_weights:
+  product: 1.0
+  evaluation: 1.0
+  delivery: 0.8
+  risk_control: 0.8

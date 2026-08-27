@@ -1,0 +1,36 @@
+# Private profile, evidence, and generated deliverables
+.env
+profiles/*.yaml
+!profiles/*.example.yaml
+!profiles/*.schema.yaml
+private/
+evidence/private/
+photos/
+*.pdf
+*.docx
+*.png
+*.jpg
+*.jpeg
+output/
+tmp/
+rendered/
+__pycache__/
+*.pyc
+
+# Secrets and private evaluation assets
+*.key
+*.pem
+gold_set/
+chunked_docs/
+private/
+
+# Local SkillOpt runtime data; may contain approved but sensitive input snapshots.
+assets/trajectories/
+assets/benchmarks/
+assets/candidates/
+assets/evaluations/
+assets/rejected/
+assets/backups/
+runtime/
+benchmarks/private/
+benchmark-results/

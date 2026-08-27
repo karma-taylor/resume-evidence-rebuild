@@ -1,0 +1,12 @@
+{
+  "summary": "Add a measurable lower-page balance check to the one-page layout guidance.",
+  "hypothesis": "Repeated bottom-whitespace failures occur because the guidance requests hierarchy but does not set a final lower-page balance check.",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/sections/one-page-layout-qa",
+      "value": "## One-page layout QA\n\nFor a one-page resume, render the final artifact and inspect the page rather than trusting source-document layout. Keep the target role and strongest proof in the top third; use three to four distinct evidence-backed projects; and keep project bullets complete, readable, and proportionate. Maintain a small footer gap, but rebalance content or spacing when the lower page has conspicuous unused space. Treat lower-page balance as a final QA check rather than adding filler or reducing readability. Check for clipping, overlap, missing CJK glyphs, unreadable contact details, orphaned headings, and excessive bold density. Read [one-page-layout-qa.md](references/one-page-layout-qa.md) for the complete QA checklist."
+    }
+  ],
+  "expected_effect": "Targets the logged lower-page whitespace failure without changing evidence or privacy rules."
+}

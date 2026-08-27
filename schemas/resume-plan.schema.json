@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agent A Resume Plan",
+  "type": "object",
+  "required": ["target_role", "projects"],
+  "properties": {
+    "target_role": {"type": "string"},
+    "projects": {"type": "array", "minItems": 3, "maxItems": 4, "items": {"type": "object", "required": ["id", "claim_ids", "claims"], "properties": {"id": {"type": "string"}, "claim_ids": {"type": "array", "minItems": 3, "items": {"type": "string"}}, "claims": {"type": "array", "minItems": 3, "items": {"type": "object"}}}}}
+  }
+}

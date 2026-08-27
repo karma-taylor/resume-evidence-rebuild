@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "event_id": "d1b8b310-468d-4c29-bf49-0a1ea6a59811",
+  "timestamp": "2026-08-25T09:30:00Z",
+  "event_type": "a4_qa_failed",
+  "run": {
+    "run_id": "rollout-20260825-001",
+    "target_role": "Enterprise AI Project Manager",
+    "locale": "zh-CN",
+    "input_manifest": [
+      {"kind": "resume_pdf", "reference": "local:redacted-source-01", "sha256": "7a8e1b4d..."},
+      {"kind": "project_repo", "reference": "github:owner/repo@redacted", "sha256": "ce41a92f..."}
+    ],
+    "skill": {
+      "path": "SKILL.md",
+      "sha256": "0c4a196f...",
+      "text": "<redacted incumbent snapshot retained in local secure storage>"
+    },
+    "artifact_manifest": [
+      {"kind": "docx", "sha256": "f8c2aaf1..."},
+      {"kind": "pdf", "sha256": "d50008cc...", "pages": 1}
+    ]
+  },
+  "qa": {
+    "profile": "a4-single-page-v1",
+    "passed": false,
+    "findings": [
+      {
+        "code": "BOTTOM_WHITESPACE_EXCESS",
+        "severity": "error",
+        "page": 1,
+        "observed": {"bottom_whitespace_ratio": 0.21},
+        "threshold": {"max_bottom_whitespace_ratio": 0.12},
+        "message": "Lower-page unused area exceeds the allowed ratio."
+      }
+    ]
+  }
+}

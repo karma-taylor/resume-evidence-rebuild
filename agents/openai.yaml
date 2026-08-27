@@ -1,0 +1,7 @@
+interface:
+  display_name: "Resume Evidence Rebuild"
+  short_description: "Evidence-driven resume rebuilds for DOCX and PDF"
+  default_prompt: "Use $resume-evidence-rebuild to tailor my resume from these materials and this JD."
+
+policy:
+  allow_implicit_invocation: true
