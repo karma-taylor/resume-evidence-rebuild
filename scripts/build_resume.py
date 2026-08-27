@@ -210,6 +210,7 @@ def main() -> int:
     parser.add_argument("--agent-a-output", type=Path, help="Validated Agent A JSON; omit for deterministic source-preserving selection")
     parser.add_argument("--agent-b-output", type=Path, help="Required validated Agent B JSON before rendering")
     parser.add_argument("--render", action="store_true", help="Invoke Typst renderer after validating Agent B output")
+    parser.add_argument("--docx", action="store_true", help="Also create an editable DOCX; it is not used for PDF layout decisions")
     args = parser.parse_args()
     try:
         profile = Profile.model_validate(load_yaml(args.profile))
@@ -232,6 +233,9 @@ def main() -> int:
         write_json(args.output_dir / "typeset-plan.json", agent_b)
         if args.render:
             command = [sys.executable, str(Path(__file__).with_name("typst_renderer.py")), "--profile", str(args.profile), "--template", str(args.template), "--resume-plan", str(args.output_dir / "resume-plan.json"), "--typeset-plan", str(args.output_dir / "typeset-plan.json"), "--output-dir", str(args.output_dir)]
+            subprocess.run(command, check=True)
+        if args.docx:
+            command = [sys.executable, str(Path(__file__).with_name("docx_renderer.py")), "--profile", str(args.profile), "--template", str(args.template), "--resume-plan", str(args.output_dir / "resume-plan.json"), "--typeset-plan", str(args.output_dir / "typeset-plan.json"), "--output", str(args.output_dir / "resume.docx")]
             subprocess.run(command, check=True)
         print(json.dumps({"status": "ready", "output_dir": str(args.output_dir)}, ensure_ascii=False))
         return 0
