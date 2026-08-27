@@ -31,7 +31,7 @@ ALLOWED_PATHS = {
 ALLOWED_OPS = {"add", "remove", "replace"}
 MAX_PATCH_OPS = 3
 MAX_CHAR_DELTA = 450
-PROTECTED_MARKERS = ("Evidence and claims", "Privacy and publishing")
+PROTECTED_MARKERS = ("## Evidence and safety", "## SkillOpt")
 
 SYSTEM_PROMPT = """You are SkillOpt, an optimizer for the Resume Evidence Rebuild skill. Your task is to reduce repeatable one-page A4 QA failures without weakening factual, privacy, or authorization safeguards.
 

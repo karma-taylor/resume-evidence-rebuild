@@ -7,14 +7,13 @@ description: Build or tailor resumes from authorized evidence using a private pr
 
 Build credible, role-specific resumes from authorized evidence. This public Skill contains only reusable behavior. Candidate identity, contact details, photos, timelines, project claims, and evaluation data belong in a local private profile and must never be committed here.
 
-## Runtime contract
+## Workflow
 
 1. Load a local profile that conforms to `schemas/profile.schema.json` and a public role template from `templates/`.
 2. Run Data Probe before drafting. It classifies selected projects as `ready`, `bounded`, or `needs_user_input`.
 3. Agent A selects three or four evidence-backed projects and emits `resume-plan.json` with claim IDs, source, scope, confidence, and authorization state. It does not optimize prose length.
 4. Agent B writes only from Agent A claims. Each Chinese bullet is **60–70 CJK characters** and contains one or two verified bold phrases. Its output must include `bold_phrases_used` and `source_claim_ids` for every bullet.
-5. Render the PDF with Typst as the layout authority. Generate DOCX only when an editable output is requested; DOCX never overrides the Typst PDF layout decision.
-6. Run deterministic geometry QA and claim/bold validation before delivery. Do not use a model to waive an error.
+5. Pass the validated plans to Output routing.
 
 ## Evidence and safety
 
@@ -24,7 +23,12 @@ Build credible, role-specific resumes from authorized evidence. This public Skil
 - A project with facts but no authorized numeric metric is `bounded`: write verified delivery mechanisms, controls, validation scope, or acceptance boundaries instead. A project with missing core facts, source, authorization, or timeline is `needs_user_input` and blocks generation.
 - Market route is template/profile input: domestic routes may require an authorized compliant photo; North American and foreign routes prohibit it. Missing required identity fields must remain explicit placeholders, never guessed values.
 
-## One-page A4 rules
+## Output routing
+
+- Render the PDF with Typst as the layout authority. Generate DOCX only when an editable output is requested; DOCX never overrides the Typst PDF layout decision.
+- Run deterministic geometry QA and claim/bold validation before delivery. Do not use a model to waive an error.
+
+## One-page layout QA
 
 - Final PDF is exactly one A4 page, one vertical reading column, with no body sidebars, side-by-side project blocks, or multi-column tables.
 - Body text is at least 10 pt; use 1.5× leading or 8–10 pt paragraph-after spacing. Do not solve overflow by reducing readability.
