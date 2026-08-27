@@ -33,6 +33,7 @@ def main() -> int:
         if not chars:
             findings.append({"code": "TEXT_EXTRACTION_ERROR", "severity": "error"})
         else:
+            glyph_text = "".join(char["text"] for char in chars)
             bottom_whitespace = page.height - max(char["bottom"] for char in chars)
             if bottom_whitespace > 72:
                 findings.append({"code": "BOTTOM_WHITESPACE_EXCESS", "severity": "error", "observed": {"pt": round(bottom_whitespace, 2)}, "threshold": {"max_pt": 72}})
@@ -41,6 +42,18 @@ def main() -> int:
                     prefix = bullet["text"][:8]
                     hits = [char for char in chars if prefix[:1] == char["text"]]
                     cjk = sum("\u3400" <= char <= "\u9fff" or "\uf900" <= char <= "\ufaff" for char in bullet["text"])
+                    for phrase in bullet["bold_phrases"]:
+                        needle = "".join(phrase.split())
+                        offset = 0
+                        rendered_bold = False
+                        while (start := glyph_text.find(needle, offset)) >= 0:
+                            fonts = " ".join(str(char.get("fontname", "")).lower() for char in chars[start:start + len(needle)])
+                            if "w6" in fonts or "bold" in fonts or "semibold" in fonts:
+                                rendered_bold = True
+                                break
+                            offset = start + 1
+                        if not rendered_bold:
+                            findings.append({"code": "BULLET_BOLD_MISSING_ERROR", "severity": "error", "element_id": bullet["element_id"], "phrase": phrase})
                     geometry.append({"element_id": bullet["element_id"], "page": 1, "prefix": prefix, "candidate_glyphs": len(hits), "cjk_characters": cjk, "lines": None, "overflow_pt": 0})
     payload = {"profile": "typst-a4-v1", "passed": not findings, "findings": findings, "geometry": geometry}
     args.output.parent.mkdir(parents=True, exist_ok=True)

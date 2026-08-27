@@ -69,6 +69,7 @@ def main() -> int:
 #set text(font: (\"Heiti SC\", \"Arial Unicode MS\", \"Arial\"), size: 10pt, fill: rgb(18, 18, 18))
 #set par(leading: 14pt)
 #set heading(numbering: none)
+#show strong: body => text(font: \"Hiragino Sans GB Interface W6\", body)
 #align(left)[
 """ + header + """
 
