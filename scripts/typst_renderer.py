@@ -47,7 +47,7 @@ def main() -> int:
     manifest: list[dict[str, Any]] = []
     for project in typeset["projects"]:
         source = by_project[project["id"]]
-        blocks.append(f"#text(size: 11pt, weight: \"semibold\")[{esc(source['title'])}] #h(1fr) #text(size: 9pt)[{esc(source['start'])} – {esc(source['end'])}]")
+        blocks.append(f"#text(size: 11pt, weight: \"semibold\")[{esc(source['title'])}] #h(1fr) #text(size: 10pt)[{esc(source['start'])} – {esc(source['end'])}]")
         manifest_bullets: list[dict[str, Any]] = []
         for number, bullet in enumerate(project["bullets"], 1):
             element_id = f"project.{project['id']}.bullet.{number}"
@@ -58,14 +58,14 @@ def main() -> int:
     for item in profile.get("employment", []):
         employment_blocks.append(
             f"#text(size: 10pt, weight: \"semibold\")[{esc(item.get('employer', ''))} | {esc(item.get('title', ''))}] "
-            f"#h(1fr) #text(size: 9pt)[{esc(item.get('start', ''))} – {esc(item.get('end', ''))}]\n"
-            f"#text(size: 9pt)[{esc(item.get('summary', ''))}]"
+            f"#h(1fr) #text(size: 10pt)[{esc(item.get('start', ''))} – {esc(item.get('end', ''))}]\n"
+            f"#text(size: 10pt)[{esc(item.get('summary', ''))}]"
         )
     certs = " · ".join(profile.get("certifications", []))
     education = " · ".join(f"{item.get('school', '')} {item.get('degree', '')}" for item in profile.get("education", []))
     contact = json.dumps("  |  ".join(str(identity[key]) for key in ("phone", "email", "portfolio_url")), ensure_ascii=False)
     header = f"#text(size: 19pt, weight: \"bold\")[{esc(identity['name'])}]\n#text(size: 11pt, weight: \"semibold\")[{esc(template['target_role'])}]\n#text(size: 9pt)[#raw({contact})]"
-    typst = """#set page(paper: \"a4\", margin: (top: 1.7cm, bottom: 1.7cm, left: 1.7cm, right: 1.7cm))
+    typst = """#set page(paper: \"a4\", margin: (top: 1.7cm, bottom: 1.27cm, left: 1.7cm, right: 1.7cm))
 #set text(font: (\"Heiti SC\", \"Arial Unicode MS\", \"Arial\"), size: 10pt, fill: rgb(18, 18, 18))
 #set par(leading: 14pt)
 #set heading(numbering: none)
@@ -82,13 +82,13 @@ def main() -> int:
 #v(7pt)
 #text(size: 12pt, weight: \"bold\")[Projects]
 #v(3pt)
-""" + "\n#v(9pt)\n".join(blocks) + """
+""" + "\n#v(7pt)\n".join(blocks) + """
 #v(6pt)
 #text(size: 11pt, weight: \"bold\")[Education & Certifications]
 #v(2pt)
-#text(size: 9pt)[""" + esc(education) + """ ]
+#text(size: 10pt)[""" + esc(education) + """ ]
 #v(2pt)
-#strong[#text(size: 9pt)[""" + esc(certs) + """]]
+#strong[#text(size: 10pt)[""" + esc(certs) + """]]
 ]
 """
     typst_path, pdf_path = args.output_dir / "resume.typ", args.output_dir / "resume.pdf"

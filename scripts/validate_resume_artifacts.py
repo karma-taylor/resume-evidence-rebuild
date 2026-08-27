@@ -86,10 +86,17 @@ def resolved_font_size_pt(paragraph: Any, run: Any) -> float | None:
 
 
 def paragraph_spacing_is_valid(paragraph: Any) -> bool:
-    fmt = paragraph.paragraph_format
-    if isinstance(fmt.line_spacing, (int, float)) and float(fmt.line_spacing) >= 1.5:
-        return True
-    return fmt.space_after is not None and 8.0 <= float(fmt.space_after.pt) <= 10.0
+    formats = [paragraph.paragraph_format]
+    style = paragraph.style
+    while style is not None:
+        formats.append(style.paragraph_format)
+        style = style.base_style
+    for fmt in formats:
+        if isinstance(fmt.line_spacing, (int, float)) and float(fmt.line_spacing) >= 1.5:
+            return True
+        if fmt.space_after is not None and 8.0 <= float(fmt.space_after.pt) <= 10.0:
+            return True
+    return False
 
 
 def iter_docx_image_blobs(document: Any) -> Iterable[bytes]:
