@@ -55,6 +55,10 @@ python scripts/build_resume.py \
 - 增加公共 CI 的 PDF smoke、环境检查和本机绝对路径检查；增加手动触发的私有 self-hosted runner workflow；补充 Typst 0.15.1、可再分发测试字体、Microsoft YaHei 和 LibreOffice 的环境策略。
 - 本轮本地验收：71 个测试通过；公共 smoke、技能产物 QA、私有基准结构校验通过；50 份实际行为验证连续两轮均为 `50/50`，A4 QA 为 100%，安全哨兵失败为 0，逐 fixture 结果完全一致。
 
+### 1.0.4 — 2026-09-03
+
+- 改进公共 PDF smoke 失败报告：当字体或版式环境导致构建阻断时，CI 只输出脱敏后的 route、Reflow 状态、布局档位、页数和错误码，便于定位而不会暴露简历内容、私有路径或生成物。
+
 ### 1.0.2 — 2026-09-03
 
 - 将私有基准统一为 `fixture-01/` 至 `fixture-50/` 目录，每个目录包含 `manifest.json`、`expected.json`、`profile.yaml`、`template.yaml` 和 `materials/inbox.yaml`。

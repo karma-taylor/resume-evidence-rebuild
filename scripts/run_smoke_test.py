@@ -23,6 +23,45 @@ def validate(instance: object, schema_path: Path, label: str) -> None:
         raise RuntimeError(f"schema validation failed: {details}")
 
 
+def failure_diagnostics(output: Path) -> dict[str, object]:
+    """Return non-sensitive gate facts when the public smoke build fails."""
+    diagnostics: dict[str, object] = {}
+    for name in ("delivery-manifest.json", "geometry-qa.json", "reflow-trace.json"):
+        path = output / name
+        if not path.is_file():
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if name == "reflow-trace.json":
+            rounds = payload.get("rounds") if isinstance(payload, dict) else None
+            diagnostics["reflow_status"] = payload.get("status") if isinstance(payload, dict) else None
+            diagnostics["reflow_rounds"] = [
+                {
+                    "round": item.get("round"),
+                    "layout_state": item.get("layout_state"),
+                    "page_count": item.get("page_count"),
+                    "finding_codes": [
+                        finding.get("code")
+                        for finding in item.get("findings", [])
+                        if isinstance(finding, dict) and isinstance(finding.get("code"), str)
+                    ],
+                }
+                for item in rounds or []
+                if isinstance(item, dict)
+            ]
+        elif name == "geometry-qa.json":
+            diagnostics["geometry_finding_codes"] = [
+                finding.get("code")
+                for finding in payload.get("findings", [])
+                if isinstance(finding, dict) and isinstance(finding.get("code"), str)
+            ] if isinstance(payload, dict) else []
+        else:
+            diagnostics["delivery_status"] = payload.get("status") if isinstance(payload, dict) else None
+    return diagnostics
+
+
 def main() -> int:
     with TemporaryDirectory(prefix="resume-evidence-public-smoke-") as temp:
         output = Path(temp) / "output"
@@ -36,7 +75,8 @@ def main() -> int:
         ]
         completed = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False, timeout=180)
         if completed.returncode:
-            raise SystemExit(f"ERROR: public smoke build failed\n{completed.stdout}\n{completed.stderr}")
+            details = json.dumps(failure_diagnostics(output), ensure_ascii=False, separators=(",", ":"))
+            raise SystemExit(f"ERROR: public smoke build failed\n{completed.stdout}\n{completed.stderr}\ndiagnostics={details}")
         required = ("resume.pdf", "delivery-manifest.json", "project-manifest.json", "geometry-qa.json", "reflow-trace.json", "resume-plan.json", "typeset-plan.json")
         missing = [name for name in required if not (output / name).is_file()]
         if missing:

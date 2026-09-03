@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.4 — 2026-09-03
+
+- Improved public PDF smoke diagnostics with route, Reflow state, layout state, page count, and error codes only; resume text, private paths, and generated artifacts remain excluded.
+
 ## 1.0.3 — 2026-09-03
 
 - Added public PDF smoke CI and a private self-hosted 50-fixture benchmark workflow.
