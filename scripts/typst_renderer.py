@@ -364,7 +364,10 @@ def _main_impl() -> int:
 #let layout-len(key) = layout.at("spacing").at(key) * 1pt
 #let design-len(key) = design.at("tokens").at("lines").at(key) * 1pt
 #let design-color(key) = rgb(if key == "date_color" or key == "overview_color" { design.at("tokens").at("hierarchy").at(key) } else { design.at("tokens").at("palette").at(key) })
-#set page(paper: \"a4\", margin: (top: 1.27cm, bottom: 1.27cm, left: 1.7cm, right: 1.7cm))
+// Keep the ink boundary above the 36pt QA floor across both Microsoft YaHei
+// and the redistributable Noto CJK smoke-test font.  The page margin remains
+// comfortably inside the documented 1.27–2.54cm contract.
+#set page(paper: \"a4\", margin: (top: 1.35cm, bottom: 1.27cm, left: 1.7cm, right: 1.7cm))
 #set text(font: """ + json.dumps(cjk_font, ensure_ascii=False) + """, size: 10pt, fill: rgb("#000000"))
 #set text(top-edge: 0.8em, bottom-edge: -0.2em)
 #set par(leading: 0.4em, spacing: 0.5pt)

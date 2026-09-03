@@ -42,6 +42,13 @@ python scripts/build_resume.py \
 
 ## 更新记录
 
+### 1.0.8 — 2026-09-03
+
+- 修复公共 Noto CJK smoke 的真实版式差异：Typst PDF 顶部页面边距从 1.27cm 调整为 1.35cm，使字体 ink boundary 稳定高于 36pt QA 下限；仍符合文档规定的 1.27–2.54cm 物理边距范围。
+- 本次变更不放宽 QA，也不改变生产字体；它把 Microsoft YaHei 与可再分发 Noto CJK 之间的字形上边界差异纳入同一固定版式契约。
+- 依据 1.0.7 公共 CI 结果：`pdftoppm` 缺口已修复，剩余失败明确为 Noto 下 34.4pt 的顶部 ink boundary。
+- 本版本在推送前完成生成 `.typ` 注释语法回归，确保新增版式说明不会进入 Typst 表达式解析。
+
 ### 1.0.7 — 2026-09-03
 
 - 修复公共 CI PDF smoke 的实际环境缺口：Ubuntu runner 现在显式安装 `poppler-utils`，提供 PDF 粗体栅格 QA 所需的 `pdftoppm`。

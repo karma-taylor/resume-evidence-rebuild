@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.8 — 2026-09-03
+
+- Adjusted the authoritative Typst PDF top margin from 1.27cm to 1.35cm so the measured ink boundary stays above the 36pt QA floor for both Microsoft YaHei and the redistributable Noto CJK smoke font. The physical margin remains within the documented 1.27–2.54cm range.
+- This is a geometry-contract correction, not a QA relaxation or a production-font change; it makes the public and production font metrics share the same fixed layout contract.
+- Root cause was confirmed after 1.0.7: `pdftoppm` was available, and the remaining public failure was Noto's 34.4pt top ink boundary.
+- Verified the generated Typst comment syntax locally before publishing the release.
+
 ## 1.0.7 — 2026-09-03
 
 - Fixed the public Ubuntu PDF smoke environment by installing `poppler-utils`, which provides the `pdftoppm` binary required for raster bold QA.
