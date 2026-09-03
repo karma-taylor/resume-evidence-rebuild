@@ -663,6 +663,7 @@ def test_direct_renderer_requires_gate_before_writing_delivery_manifest(tmp_path
         ))
 
     monkeypatch.setattr(typst_renderer.subprocess, "run", fake_compile)
+    monkeypatch.setattr(typst_renderer.shutil, "which", lambda name: "/usr/bin/typst" if name == "typst" else None)
     monkeypatch.setattr(typst_renderer, "run_pdf_delivery_gate", pass_gate)
     admission_calls = []
     monkeypatch.setattr(typst_renderer, "load_and_validate_render_inputs", admit)
