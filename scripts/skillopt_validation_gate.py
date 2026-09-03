@@ -34,7 +34,14 @@ from skillopt_pipeline import apply_bounded_patch
 
 
 LOG = logging.getLogger("skillopt.validation_gate")
-SAFETY_CODES = frozenset({"CLIPPING", "OVERLAP"})
+# These findings are never acceptable as a regression, even when a candidate
+# improves the aggregate A4 pass rate.  Content-density findings are handled
+# by the normal score; physical/evidence failures remain hard sentinels.
+SAFETY_CODES = frozenset({
+    "CLIPPING", "OVERLAP", "PAGE_SIZE_ERROR", "MARGIN_OUT_OF_RANGE_ERROR",
+    "MULTI_COLUMN_LAYOUT_ERROR", "FONT_TOO_SMALL_ERROR", "PARAGRAPH_SPACING_ERROR",
+    "EVIDENCE_GATE_BLOCKED", "COMPLIANCE_PHOTO_ERROR", "VISUAL_DESIGN_MISMATCH_ERROR",
+})
 
 
 class GateError(RuntimeError):

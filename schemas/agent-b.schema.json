@@ -1,9 +1,67 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Agent B Typeset Copy",
+  "title": "Agent B Typeset Copy — evidence-first terminal emphasis",
   "type": "object",
-  "required": ["projects"],
+  "required": ["projects", "employment"],
   "properties": {
-    "projects": {"type": "array", "minItems": 3, "maxItems": 4, "items": {"type": "object", "required": ["id", "bullets"], "properties": {"id": {"type": "string"}, "bullets": {"type": "array", "minItems": 3, "maxItems": 4, "items": {"type": "object", "required": ["text", "bold_phrases_used", "source_claim_ids"], "properties": {"text": {"type": "string"}, "bold_phrases_used": {"type": "array", "minItems": 1, "maxItems": 2, "items": {"type": "string"}}, "source_claim_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}}}}}}}}}
+    "content_mode": {"enum": ["normal", "compressed", "expanded"], "default": "normal", "description": "Frozen output budget: normal 40-50, compressed 30-40, expanded 50-130 CJK for project bullets; employment remains 40-50."},
+    "projects": {
+      "type": "array", "minItems": 3, "maxItems": 4,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "bullets"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "overview": {"type": "null"},
+          "bullets": {
+            "type": "array", "minItems": 3, "maxItems": 3,
+            "items": {
+              "type": "object", "additionalProperties": false,
+              "required": ["stage", "text", "bold_phrases_used", "source_claim_ids", "assertions"],
+              "properties": {
+                "stage": {"enum": ["background", "solution", "result"], "description": "background 只写业务对象/难点，solution 写授权解决动作与最多 2 个关键技术术语，result 只写授权业务结果或指标。"},
+                "text": {"type": "string", "minLength": 1, "description": "面向非技术业务读者的可读文案；不得把技术名词堆叠在背景或结果中。"},
+                "bold_phrases_used": {"type": "array", "minItems": 1, "maxItems": 2, "items": {"type": "string", "minLength": 1}},
+                "terminal_bold_phrase": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+                "source_claim_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+                "assertions": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["text", "source_claim_id"], "properties": {"text": {"type": "string", "minLength": 1}, "source_claim_id": {"type": "string", "minLength": 1}}}},
+                "derived_metric": {"anyOf": [{"$ref": "#/$defs/derived_metric"}, {"type": "null"}]}
+              }
+            }
+          }
+        }
+      }
+    },
+    "employment": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "bullets"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "bullets": {
+            "type": "array", "minItems": 4, "maxItems": 5,
+            "items": {
+              "type": "object", "additionalProperties": false,
+              "required": ["text", "bold_phrases_used", "terminal_bold_phrase", "source_ingestion_ids", "assertions"],
+              "properties": {
+                "text": {"type": "string", "minLength": 1, "description": "直接业务导向句，必须包含业务上下文与授权动作；技术术语仅可出现在动作片段且每条最多 2 个。"},
+                "bold_phrases_used": {"type": "array", "minItems": 1, "maxItems": 2, "items": {"type": "string", "minLength": 1}},
+                "terminal_bold_phrase": {"type": "string", "minLength": 1},
+                "source_ingestion_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+                "assertions": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["text", "source_ingestion_id"], "properties": {"text": {"type": "string", "minLength": 1}, "source_ingestion_id": {"type": "string", "minLength": 1}}}},
+                "business_structure": {"anyOf": [{"type": "object", "additionalProperties": false, "required": ["business_difficulty", "solution_action", "quantified_result"], "properties": {"business_difficulty": {"$ref": "#/$defs/employment_business_segment"}, "solution_action": {"$ref": "#/$defs/employment_business_segment"}, "quantified_result": {"$ref": "#/$defs/employment_business_segment"}}}, {"type": "null"}], "description": "Optional legacy project-style structure; omit it for direct business work bullets without stage labels."}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "derived_metric": {"type": "object", "additionalProperties": false, "required": ["operation", "source_claim_ids", "before_text", "after_text", "before_value", "after_value", "precision"], "properties": {"operation": {"enum": ["percentage_reduction", "percentage_increase", "times_improvement"]}, "source_claim_ids": {"type": "array", "minItems": 1, "maxItems": 3, "items": {"type": "string", "minLength": 1}}, "before_text": {"type": "string", "minLength": 1}, "after_text": {"type": "string", "minLength": 1}, "before_value": {"type": "number", "exclusiveMinimum": 0}, "after_value": {"type": "number", "minimum": 0}, "precision": {"type": "integer", "minimum": 0, "maximum": 2}}},
+    "project_stage_bullet": {"type": "object", "additionalProperties": false, "required": ["stage", "text", "bold_phrases_used", "source_claim_ids", "assertions"], "properties": {"stage": {"enum": ["background", "solution", "result"]}, "text": {"type": "string", "minLength": 1}, "bold_phrases_used": {"type": "array", "minItems": 1, "maxItems": 2, "items": {"type": "string", "minLength": 1}}, "terminal_bold_phrase": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]}, "source_claim_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}, "assertions": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["text", "source_claim_id"], "properties": {"text": {"type": "string", "minLength": 1}, "source_claim_id": {"type": "string", "minLength": 1}}}}, "derived_metric": {"anyOf": [{"$ref": "#/$defs/derived_metric"}, {"type": "null"}]}}},
+    "business_segment": {"type": "object", "additionalProperties": false, "required": ["text", "source_claim_id"], "properties": {"text": {"type": "string", "minLength": 1}, "source_claim_id": {"type": "string", "minLength": 1}, "derived_metric": {"anyOf": [{"$ref": "#/$defs/derived_metric"}, {"type": "null"}]}}},
+    "employment_business_segment": {"type": "object", "additionalProperties": false, "required": ["text", "source_ingestion_id"], "properties": {"text": {"type": "string", "minLength": 1}, "source_ingestion_id": {"type": "string", "minLength": 1}, "derived_metric": {"anyOf": [{"$ref": "#/$defs/derived_metric"}, {"type": "null"}]}}}
   }
 }

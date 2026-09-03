@@ -1,7 +1,7 @@
 interface:
-  display_name: "Resume Evidence Rebuild"
-  short_description: "Evidence-driven resume rebuilds for DOCX and PDF"
-  default_prompt: "Use $resume-evidence-rebuild to tailor my resume from these materials and this JD."
+  display_name: "简历证据重构"
+  short_description: "基于证据生成可编辑 DOCX 与经过视觉校验的 PDF 简历"
+  default_prompt: "使用 $resume-evidence-rebuild，根据我提供的材料和 JD 定制简历。"
 
 policy:
   allow_implicit_invocation: true

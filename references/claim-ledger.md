@@ -1,17 +1,17 @@
-# Claim Ledger
+# 事实台账
 
-Use a private working table before drafting or tailoring a resume. It prevents a polished phrase, a JD keyword, or a previous resume from becoming an unsupported claim.
+起草或定制简历前，使用私有工作表记录事实。它避免把润色语句、JD 关键词或旧简历文字升级为无证据主张。
 
-| Field | Record |
+| 字段 | 记录内容 |
 | --- | --- |
-| Claim | The precise fact or bounded outcome to communicate. |
-| Evidence | Source path or user confirmation, plus the relevant location when available. |
-| Scope | Production, demo, offline test, synthetic evaluation, private evaluation, or unknown. |
-| Confidence | Confirmed, directly evidenced, prior-resume-only, or needs confirmation. |
-| Approved wording | The strongest wording the evidence supports. |
+| 事实 | 需要表达的精确事实或有界成果。 |
+| 证据 | 用户确认或来源路径；可用时附关键位置。 |
+| 范围 | 生产、演示、离线测试、合成评测、私有评测或未知。 |
+| 置信度 | 用户确认、直接证据、仅旧简历或待确认。 |
+| 允许措辞 | 当前证据支持的最强表达。 |
 
-Only use claims marked **confirmed** or **directly evidenced**. For `prior-resume-only`, retain the claim only when the user confirms it; otherwise remove it or rewrite it as a non-factual capability statement that is still supported by evidence. For `needs confirmation`, ask a focused question when the claim materially affects the target role; otherwise omit it.
+只能使用标为**用户确认**或**直接证据**的事实。对 `prior-resume-only`，仅在用户确认后保留；否则删除，或重写成仍被证据支持的非事实能力描述。对 `needs confirmation`，若它显著影响目标岗位则进行聚焦追问，否则省略。
 
-Map JD terminology to evidence, not the other way around. A keyword may guide project selection or wording only if the ledger identifies supporting evidence. Do not infer ownership, scale, business impact, deployment status, or a metric's meaning from a matching keyword.
+JD 术语必须映射到证据，而不是反过来。关键词只能在台账存在支持证据时用于项目选择或措辞；不得从关键词推断所有权、规模、业务影响、部署状态或指标含义。
 
-Before delivery, scan every number, employer/title/date, named customer, credential, and production claim against the ledger. Remove or bound anything without an approved wording. Keep the ledger with the private working materials; it is not a resume section or delivery artifact.
+交付前，对每个数字、雇主/职务/日期、客户、证书和生产主张逐项对照台账。删除或收缩没有允许措辞的内容。台账保留在私有工作材料中，不是简历区块或交付产物。

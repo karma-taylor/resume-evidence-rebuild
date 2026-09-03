@@ -1,15 +1,15 @@
-# Optimizer API and local text-space contract
+# 优化器 API 与本地文本空间契约
 
-## API input and output
+## API 输入输出
 
-`scripts/skillopt_pipeline.py` calls an OpenAI-compatible API only when `--execute` is set. Runtime configuration uses `SKILLOPT_API_KEY`, `SKILLOPT_MODEL` and optional `SKILLOPT_BASE_URL`; credentials never enter source control, logs or fixtures.
+仅在设置 `--execute` 时，`scripts/skillopt_pipeline.py` 才调用 OpenAI 兼容 API。运行时使用 `SKILLOPT_API_KEY`、`SKILLOPT_MODEL` 和可选 `SKILLOPT_BASE_URL`；凭据绝不能进入源代码、日志或样本。
 
-The request consists of the SkillOpt system prompt, redacted failure summaries and the three mutable public instruction sections. The response must be JSON matching `OptimizerResponse`: `summary`, `hypothesis`, `patch`, and `expected_effect`. Patches are RFC 6902 operations limited to three operations and the allowed layout sections.
+请求由 SkillOpt 系统提示词、脱敏失败摘要和三个可变公开指令章节组成。响应必须是匹配 `OptimizerResponse` 的 JSON：`summary`、`hypothesis`、`patch` 和 `expected_effect`。补丁为 RFC 6902，最多 3 个操作，只能作用于获准版式章节。
 
-## Local text space and promotion
+## 本地文本空间与晋级
 
-The incumbent `SKILL.md` is read-only during reflection. A candidate is written below a private runtime root with its hash and benchmark report. The pipeline never applies a candidate to the active Skill and has no direct-to-main mode. A separate PR helper may copy an accepted candidate to a new review branch and open a PR with the report; the user merges it.
+反思期间现役 `SKILL.md` 只读。候选版本连同哈希与基准报告写入私有运行目录。流水线不会应用候选版本到现役 Skill，也没有直接写入 `main` 的模式。独立 PR 助手可把已接受候选复制到评审分支并携带报告创建 PR；是否合并由用户决定。
 
-## Benchmark runner
+## 基准运行器
 
-Use a private fixture root outside this repository. A runner receives `SKILLOPT_SKILL_PATH` and `SKILLOPT_RUN_LABEL`, executes the frozen fixture set, and prints one JSON score object containing total, passed, pass rate, findings-by-code and sentinel failures. The fixture manifest, raw resumes, photos and render output remain private.
+使用仓库外部的私有样本根目录。运行器接收 `SKILLOPT_SKILL_PATH` 和 `SKILLOPT_RUN_LABEL`，执行冻结样本集，并输出包含总数、通过数、通过率、错误码统计和哨兵失败的 JSON。manifest、原始简历、照片和渲染输出保持私有。

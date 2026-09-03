@@ -1,40 +1,40 @@
-# SkillOpt architecture
+# SkillOpt 架构
 
-## Goal
+## 目标
 
-SkillOpt improves the instructions that govern one-page A4 resume layout while preserving the evidence-first contract of this skill. It optimizes instructions, not candidates' facts and not a live document in place.
+SkillOpt 在保持本 Skill“证据优先”契约的前提下改进单页 A4 排版指令。它优化的是指令，不是候选人的事实，也不直接修改线上文档。
 
-## Three-stage loop
+## 三阶段闭环
 
-1. **Forward execution / rollout.** A normal resume run produces a Typst-authoritative PDF, geometry report and, only when requested, an editable DOCX. When A4 QA fails, the runner saves a redacted trajectory: input manifest, incumbent Skill snapshot/hash, generated-artifact manifest and structured element-level findings. This is a negative sample, not a training example to publish.
-2. **Backward reflection.** SkillOpt groups recent failures by error code and asks an optimizer model for a bounded JSON Patch. The model sees the evidence and only the permitted text sections. It cannot edit frontmatter, privacy/evidence policies, benchmark fixtures, or user files.
-3. **Validation gate.** The patched candidate runs against the frozen offline benchmark. It may create a review PR only when its complete-set A4 QA pass rate is strictly higher (or the target error count falls with no regression) and safety sentinels remain clean. This makes the optimization loop hill-climbing with a hard safety boundary rather than autonomous rewriting.
+1. **前向执行 / rollout：** 正常任务产出以 Typst 为权威的 PDF、几何报告，以及按需生成的可编辑 DOCX。A4 QA 失败时，运行器保存脱敏轨迹：输入 manifest、现役 Skill 快照/哈希、产物 manifest 与带元素 ID 的发现。这是私有负样本，不是公开训练数据。
+2. **反向反思：** SkillOpt 按错误码汇总失败，要求优化器提出有界 JSON Patch。模型只看到证据摘要和允许修改的章节，不能修改 frontmatter、隐私/证据政策、基准样本或用户文件。
+3. **验证门控：** 候选补丁在冻结离线基准上运行。只有完整基准上 A4 QA 严格提升（或目标错误减少且无回归）并保持安全哨兵通过时，才能创建评审 PR。
 
-## Separation of concerns
+## 职责分离
 
-| Plane | Responsibility | May mutate `SKILL.md`? |
+| 平面 | 职责 | 可修改 `SKILL.md`？ |
 | --- | --- | --- |
-| Rollout | Execute the existing skill and record failures | No |
-| Optimizer | Diagnose aggregate failure evidence and propose a patch | Candidate only |
-| Gate | Run benchmark, compare scores, retain evidence | No; it authorizes a review PR only |
-| Human maintainer | Review rejected proposals or expand allowed rules | Yes, deliberately |
+| Rollout | 执行现役 Skill 并记录失败 | 否 |
+| 优化器 | 诊断失败并提出补丁 | 仅候选文件 |
+| 门控 | 运行基准、比较分数、保存证据 | 否；只能授权评审 PR |
+| 人工维护者 | 审核拒绝建议或扩展允许规则 | 可以，且需明确操作 |
 
-## Why bounded edits
+## 为什么采用有界编辑
 
-The most common layout regressions are local: excessive footer whitespace, overly dense bullet lines, oversized contact blocks, clipping, or CJK glyph fallback. A small, reviewable patch to layout wording is easier to attribute and roll back than a full prompt rewrite. The gate is intentionally indifferent to prose quality unless the predefined A4 QA confirms an improvement.
+排版回归通常是局部问题：页脚留白过大、要点过密、联系方式过大、裁切或 CJK 字体回退。局部、可审查的版式补丁比重写完整提示词更容易归因和回滚。除非预定义 A4 QA 证明提升，门控不会因措辞“看起来更好”而接受候选。
 
-## Storage model
+## 存储模型
 
-Keep runtime data outside the published skill source tree, for example:
+运行数据保存在公开 Skill 源目录之外，例如：
 
 ```text
 <runtime-root>/
-├── rollouts/YYYY-MM/*.jsonl       # redacted failure trajectories
-│   └── <run-id>/inputs/            # access-restricted original input snapshots
-├── benchmarks/                    # 50 frozen, locally held fixtures
+├── rollouts/YYYY-MM/*.jsonl       # 脱敏失败轨迹
+│   └── <run-id>/inputs/            # 受访问控制的原始输入快照
+├── benchmarks/                    # 50 份冻结私有样本
 ├── candidates/<run-id>/SKILL.md
 ├── evaluations/<run-id>.json
 └── rejected/<run-id>.json
 ```
 
-The repository may retain only schemas, synthetic examples, and code. The `assets/` folder documents the expected local fixture layout; it does not contain real materials.
+公开仓库仅保留 Schema、虚构示例与代码。`assets/` 只说明本地样本布局，不保存真实材料。

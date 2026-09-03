@@ -1,13 +1,13 @@
 id: solution-manager
-target_role: Enterprise Solution Manager
+target_role: 企业解决方案经理
 market: CN
 project_ids: [work-calendar, hybrid-rag, sales-agent]
-sections: [profile, employment, projects, education-certifications]
+sections: [profile, technical-skills, employment, projects, education-certifications]
 layout:
   page: A4
   columns: 1
   min_body_pt: 10
-  body_leading_pt: 15
+  body_line_height_multiplier: 1.4
 selection_weights:
   solution: 1.0
   delivery: 1.0

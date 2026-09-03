@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Isolated Resume Ingestion Inbox",
+  "type": "object",
+  "required": ["schema_version", "pending_ingestions"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "pending_ingestions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["ingestion_id", "status", "source_document", "matched_employer", "locator", "candidate_data"],
+        "properties": {
+          "ingestion_id": {"type": "string", "minLength": 1},
+          "status": {"enum": ["pending", "approved", "rejected"]},
+          "source_document": {
+            "type": "object",
+            "required": ["filename", "hash"],
+            "properties": {
+              "filename": {"type": "string", "minLength": 1},
+              "hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+            }
+          },
+          "matched_employer": {"type": "string", "minLength": 1},
+          "locator": {"type": "string", "minLength": 1},
+          "candidate_data": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["text", "inferred_type"],
+              "properties": {
+                "text": {"type": "string", "minLength": 1},
+                "inferred_type": {"enum": ["context", "metric", "architecture", "control", "delivery"]},
+                "flag": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
