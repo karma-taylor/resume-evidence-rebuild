@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install -r scripts/requirements.txt
+      - run: python -m compileall -q scripts tests
+      - run: python scripts/validate_examples.py
+      - run: python -m pytest -q
+      - run: python scripts/validate_resume_artifacts.py --skill-dir .

@@ -1,19 +1,465 @@
 {
   "projects": [
-    {"id": "work-calendar", "overview": {"text": "任务周期、角色时间窗和冲突状态均在虚构演示数据中建模。", "source_claim_ids": ["cal-context"]}, "bullets": [
-      {"text": "围绕虚构演示场景梳理角色时间窗与冲突状态的配置关系，将日历视图中的协同安排限定在合成数据范围内，并保留边界、处理过程和复核路径的说明，使用修订令牌。", "bold_phrases_used": ["修订令牌"], "terminal_bold_phrase": "修订令牌", "source_claim_ids": ["cal-control"]},
-      {"text": "在虚构演示写入前设置并发约束与审计留痕规则，对重复提交和状态变更进行提示，避免将未经核验的信息带入后续流程，同时保留可回溯的处理依据，使用修订令牌。", "bold_phrases_used": ["修订令牌"], "terminal_bold_phrase": "修订令牌", "source_claim_ids": ["cal-control"]},
-      {"text": "面向演示流程补充提交前核对步骤与异常反馈说明，使使用者能够在操作完成前查看信息和校验结果，不将该能力表述为真实生产成果，并通过提示落实写入前预览。", "bold_phrases_used": ["写入前预览"], "terminal_bold_phrase": "写入前预览", "source_claim_ids": ["cal-delivery"]}
-    ]},
-    {"id": "hybrid-rag", "overview": {"text": "ACL 优先过滤位于检索之前，并保留证据引用关联。", "source_claim_ids": ["rag-architecture"]}, "bullets": [
-      {"text": "针对虚构知识问答中的术语差异与权限明确检索范围，要求内容生成前保留来源说明与适用边界，避免把演示结论误作生产能力，并在受控路径中执行ACL 优先过滤。", "bold_phrases_used": ["ACL 优先过滤"], "terminal_bold_phrase": "ACL 优先过滤", "source_claim_ids": ["rag-control"]},
-      {"text": "将权限判断前置到候选检索环节，并说明该规则只适用于合成环境下的风险控制设计，输出保留可追溯来源关系和审查空间，不声明任何真实效果或指标，执行ACL 优先过滤。", "bold_phrases_used": ["ACL 优先过滤"], "terminal_bold_phrase": "ACL 优先过滤", "source_claim_ids": ["rag-control"]},
-      {"text": "为合成评测输出增加范围标记与复核说明，要求页面区分非生产数据和可验证结论，使演示人员追踪来源、验证状态和处理边界，避免以描述替代成果，执行ACL 优先过滤。", "bold_phrases_used": ["ACL 优先过滤"], "terminal_bold_phrase": "ACL 优先过滤", "source_claim_ids": ["rag-control"]}
-    ]},
-    {"id": "sales-agent", "overview": {"text": "每一份生成草稿仍必须经过人工复核后方可使用。", "source_claim_ids": ["sales-delivery"]}, "bullets": [
-      {"text": "将虚构智能体流程拆分为提取、建议和草稿生成环节，环节保留输入来源与处理中间状态，便于演示人员检查输出边界和偏差，避免无依据内容扩散，明确要求人工复核。", "bold_phrases_used": ["人工复核"], "terminal_bold_phrase": "人工复核", "source_claim_ids": ["sales-delivery"]},
-      {"text": "当来源材料不足时，在草稿生成之前返回提示和阻断结果，要求使用者补充依据后再进入后续步骤，将风险处置固定在流程前段并保留审查边界，处理来源证据缺失。", "bold_phrases_used": ["来源证据缺失"], "terminal_bold_phrase": "来源证据缺失", "source_claim_ids": ["sales-control"]},
-      {"text": "为每份虚构草稿设置确认和审阅环节，保留来源信息、处理状态及交付限制说明，确保演示输出不会被误作直接对外结论，并为后续核查提供清晰依据，明确要求人工复核。", "bold_phrases_used": ["人工复核"], "terminal_bold_phrase": "人工复核", "source_claim_ids": ["sales-delivery"]}
-    ]}
-  ]
+    {
+      "id": "work-calendar",
+      "overview": null,
+      "bullets": [
+        {
+          "stage": "background",
+          "text": "业务团队需要在多人排班时同时看清任务周期、角色时间窗和冲突情况，避免重复安排影响交付",
+          "bold_phrases_used": [
+            "业务团队需要在多人排班时同时看清任务周期、角色时间窗和冲突情况，避免重复安排影响交付"
+          ],
+          "terminal_bold_phrase": null,
+          "source_claim_ids": [
+            "cal-context"
+          ],
+          "assertions": [
+            {
+              "text": "业务团队需要在多人排班时同时看清任务周期、角色时间窗和冲突情况，避免重复安排影响交付",
+              "source_claim_id": "cal-context"
+            }
+          ]
+        },
+        {
+          "stage": "solution",
+          "text": "在写入前增加冲突校验和预览确认，并用修订令牌拦截并发修改，保留可追溯的审计记录。",
+          "bold_phrases_used": [
+            "在写入前增加冲突校验和预览确认，并用修订令牌拦截并发修改，保留可追溯的审计记录。"
+          ],
+          "terminal_bold_phrase": null,
+          "source_claim_ids": [
+            "cal-control"
+          ],
+          "assertions": [
+            {
+              "text": "在写入前增加冲突校验和预览确认，并用修订令牌拦截并发修改，保留可追溯的审计记录。",
+              "source_claim_id": "cal-control"
+            }
+          ]
+        },
+        {
+          "stage": "result",
+          "text": "演示提供写入前；合成演示覆盖120条排班记录，重复提交提示准确保留，结果仅用于非生产环境验证。",
+          "bold_phrases_used": [
+            "合成演示覆盖120条排班记录，重复提交提示准确保留，结果仅用于非生产环境验证。"
+          ],
+          "terminal_bold_phrase": "合成演示覆盖120条排班记录，重复提交提示准确保留，结果仅用于非生产环境验证。",
+          "source_claim_ids": [
+            "cal-delivery",
+            "cal-metric"
+          ],
+          "assertions": [
+            {
+              "text": "演示提供写入前",
+              "source_claim_id": "cal-delivery"
+            },
+            {
+              "text": "合成演示覆盖120条排班记录，重复提交提示准确保留，结果仅用于非生产环境验证。",
+              "source_claim_id": "cal-metric"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hybrid-rag",
+      "overview": null,
+      "bullets": [
+        {
+          "stage": "background",
+          "text": "业务人员需要在权限不同且术语不统一的资料中快速找到可引用答案，避免越权和重复查找。",
+          "bold_phrases_used": [
+            "业务人员需要在权限不同且术语不统一的资料中快速找到可引用答案，避免越权和重复查找。"
+          ],
+          "terminal_bold_phrase": null,
+          "source_claim_ids": [
+            "rag-context"
+          ],
+          "assertions": [
+            {
+              "text": "业务人员需要在权限不同且术语不统一的资料中快速找到可引用答案，避免越权和重复查找。",
+              "source_claim_id": "rag-context"
+            }
+          ]
+        },
+        {
+          "stage": "solution",
+          "text": "将访问权限判断放在资料检索之前，并保留来源引用关系，方便业务人员复核答案适用范围。",
+          "bold_phrases_used": [
+            "将访问权限判断放在资料检索之前，并保留来源引用关系，方便业务人员复核答案适用范围。"
+          ],
+          "terminal_bold_phrase": null,
+          "source_claim_ids": [
+            "rag-control"
+          ],
+          "assertions": [
+            {
+              "text": "将访问权限判断放在资料检索之前，并保留来源引用关系，方便业务人员复核答案适用范围。",
+              "source_claim_id": "rag-control"
+            }
+          ]
+        },
+        {
+          "stage": "result",
+          "text": "业务人员；合成评测覆盖100条问答记录，引用链路全部保留，结果仅用于非生产环境验证和流程演示。",
+          "bold_phrases_used": [
+            "合成评测覆盖100条问答记录，引用链路全部保留，结果仅用于非生产环境验证和流程演示。"
+          ],
+          "terminal_bold_phrase": "合成评测覆盖100条问答记录，引用链路全部保留，结果仅用于非生产环境验证和流程演示。",
+          "source_claim_ids": [
+            "rag-context",
+            "rag-metric"
+          ],
+          "assertions": [
+            {
+              "text": "业务人员",
+              "source_claim_id": "rag-context"
+            },
+            {
+              "text": "合成评测覆盖100条问答记录，引用链路全部保留，结果仅用于非生产环境验证和流程演示。",
+              "source_claim_id": "rag-metric"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sales-agent",
+      "overview": null,
+      "bullets": [
+        {
+          "stage": "background",
+          "text": "销售团队需要把客户信息、跟进建议和邮件草稿分开处理，避免遗漏关键信息或未经确认直接发",
+          "bold_phrases_used": [
+            "销售团队需要把客户信息、跟进建议和邮件草稿分开处理，避免遗漏关键信息或未经确认直接发"
+          ],
+          "terminal_bold_phrase": null,
+          "source_claim_ids": [
+            "sales-context"
+          ],
+          "assertions": [
+            {
+              "text": "销售团队需要把客户信息、跟进建议和邮件草稿分开处理，避免遗漏关键信息或未经确认直接发",
+              "source_claim_id": "sales-context"
+            }
+          ]
+        },
+        {
+          "stage": "solution",
+          "text": "当来源材料不足时，先返回提示并阻断草稿生成，要求补充依据后再进入人工复核流程。",
+          "bold_phrases_used": [
+            "当来源材料不足时，先返回提示并阻断草稿生成，要求补充依据后再进入人工复核流程。"
+          ],
+          "terminal_bold_phrase": null,
+          "source_claim_ids": [
+            "sales-control"
+          ],
+          "assertions": [
+            {
+              "text": "当来源材料不足时，先返回提示并阻断草稿生成，要求补充依据后再进入人工复核流程。",
+              "source_claim_id": "sales-control"
+            }
+          ]
+        },
+        {
+          "stage": "result",
+          "text": "每一份生成草；合成演示覆盖80份客户记录，所有草稿均经过人工复核，结果仅用于非生产环境验证。",
+          "bold_phrases_used": [
+            "合成演示覆盖80份客户记录，所有草稿均经过人工复核，结果仅用于非生产环境验证。"
+          ],
+          "terminal_bold_phrase": "合成演示覆盖80份客户记录，所有草稿均经过人工复核，结果仅用于非生产环境验证。",
+          "source_claim_ids": [
+            "sales-delivery",
+            "sales-metric"
+          ],
+          "assertions": [
+            {
+              "text": "每一份生成草",
+              "source_claim_id": "sales-delivery"
+            },
+            {
+              "text": "合成演示覆盖80份客户记录，所有草稿均经过人工复核，结果仅用于非生产环境验证。",
+              "source_claim_id": "sales-metric"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "invoice-review",
+      "overview": null,
+      "bullets": [
+        {
+          "stage": "background",
+          "text": "财务人员需要从格式不一的账单中快速确认关键信息，避免人工录入遗漏影响后续付款安排。",
+          "bold_phrases_used": [
+            "财务人员需要从格式不一的账单中快速确认关键信息，避免人工录入遗漏影响后续付款安排。"
+          ],
+          "terminal_bold_phrase": null,
+          "source_claim_ids": [
+            "invoice-context"
+          ],
+          "assertions": [
+            {
+              "text": "财务人员需要从格式不一的账单中快速确认关键信息，避免人工录入遗漏影响后续付款安排。",
+              "source_claim_id": "invoice-context"
+            }
+          ]
+        },
+        {
+          "stage": "solution",
+          "text": "先标记待确认字段和异常项，再安排人工复核，保留每次修改的原因和处理记录。",
+          "bold_phrases_used": [
+            "先标记待确认字段和异常项，再安排人工复核，保留每次修改的原因和处理记录。"
+          ],
+          "terminal_bold_phrase": null,
+          "source_claim_ids": [
+            "invoice-control"
+          ],
+          "assertions": [
+            {
+              "text": "先标记待确认字段和异常项，再安排人工复核，保留每次修改的原因和处理记录。",
+              "source_claim_id": "invoice-control"
+            }
+          ]
+        },
+        {
+          "stage": "result",
+          "text": "演示支持复核结；合成演示覆盖90份账单记录，异常项均保留人工确认结果，仅用于非生产环境验证。",
+          "bold_phrases_used": [
+            "合成演示覆盖90份账单记录，异常项均保留人工确认结果，仅用于非生产环境验证。"
+          ],
+          "terminal_bold_phrase": "合成演示覆盖90份账单记录，异常项均保留人工确认结果，仅用于非生产环境验证。",
+          "source_claim_ids": [
+            "invoice-delivery",
+            "invoice-metric"
+          ],
+          "assertions": [
+            {
+              "text": "演示支持复核结",
+              "source_claim_id": "invoice-delivery"
+            },
+            {
+              "text": "合成演示覆盖90份账单记录，异常项均保留人工确认结果，仅用于非生产环境验证。",
+              "source_claim_id": "invoice-metric"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "employment": [
+    {
+      "id": "employment-1",
+      "bullets": [
+        {
+          "text": "组织需求澄清、风险跟踪；组织需求澄清、风险跟踪和验收边；踪和验收边界确认，沉淀可追溯任务分工与交付记录。",
+          "bold_phrases_used": [
+            "踪和验收边界确认，沉淀可追溯任务分工与交付记录。"
+          ],
+          "terminal_bold_phrase": "踪和验收边界确认，沉淀可追溯任务分工与交付记录。",
+          "source_ingestion_ids": [
+            "fixture-work-01"
+          ],
+          "assertions": [
+            {
+              "text": "组织需求澄清、风险跟踪",
+              "source_ingestion_id": "fixture-work-01"
+            },
+            {
+              "text": "组织需求澄清、风险跟踪和验收边",
+              "source_ingestion_id": "fixture-work-01"
+            },
+            {
+              "text": "踪和验收边界确认，沉淀可追溯任务分工与交付记录。",
+              "source_ingestion_id": "fixture-work-01"
+            }
+          ],
+          "business_structure": null
+        },
+        {
+          "text": "汇总流程节点、责任边界；汇总流程节点、责任边界与数据口；与数据口径差异，推动需求确认、异常升级和复盘闭环。",
+          "bold_phrases_used": [
+            "与数据口径差异，推动需求确认、异常升级和复盘闭环。"
+          ],
+          "terminal_bold_phrase": "与数据口径差异，推动需求确认、异常升级和复盘闭环。",
+          "source_ingestion_ids": [
+            "fixture-work-02"
+          ],
+          "assertions": [
+            {
+              "text": "汇总流程节点、责任边界",
+              "source_ingestion_id": "fixture-work-02"
+            },
+            {
+              "text": "汇总流程节点、责任边界与数据口",
+              "source_ingestion_id": "fixture-work-02"
+            },
+            {
+              "text": "与数据口径差异，推动需求确认、异常升级和复盘闭环。",
+              "source_ingestion_id": "fixture-work-02"
+            }
+          ],
+          "business_structure": null
+        },
+        {
+          "text": "围绕 PDF 账单录入原型梳理；围绕 PDF 账单录入原型梳理用户操作、；型梳理用户操作、人工复核、异常处理与结果回写边界。",
+          "bold_phrases_used": [
+            "型梳理用户操作、人工复核、异常处理与结果回写边界。"
+          ],
+          "terminal_bold_phrase": "型梳理用户操作、人工复核、异常处理与结果回写边界。",
+          "source_ingestion_ids": [
+            "fixture-work-03"
+          ],
+          "assertions": [
+            {
+              "text": "围绕 PDF 账单录入原型梳理",
+              "source_ingestion_id": "fixture-work-03"
+            },
+            {
+              "text": "围绕 PDF 账单录入原型梳理用户操作、",
+              "source_ingestion_id": "fixture-work-03"
+            },
+            {
+              "text": "型梳理用户操作、人工复核、异常处理与结果回写边界。",
+              "source_ingestion_id": "fixture-work-03"
+            }
+          ],
+          "business_structure": null
+        },
+        {
+          "text": "维护任务状态、风险清单、；维护任务状态、风险清单、验收记录；收记录和变更说明，支持跨团队计划对齐与交付复盘。",
+          "bold_phrases_used": [
+            "收记录和变更说明，支持跨团队计划对齐与交付复盘。"
+          ],
+          "terminal_bold_phrase": "收记录和变更说明，支持跨团队计划对齐与交付复盘。",
+          "source_ingestion_ids": [
+            "fixture-work-04"
+          ],
+          "assertions": [
+            {
+              "text": "维护任务状态、风险清单、",
+              "source_ingestion_id": "fixture-work-04"
+            },
+            {
+              "text": "维护任务状态、风险清单、验收记录",
+              "source_ingestion_id": "fixture-work-04"
+            },
+            {
+              "text": "收记录和变更说明，支持跨团队计划对齐与交付复盘。",
+              "source_ingestion_id": "fixture-work-04"
+            }
+          ],
+          "business_structure": null
+        }
+      ]
+    },
+    {
+      "id": "employment-2",
+      "bullets": [
+        {
+          "text": "围绕客户需求整理交付；围绕客户需求整理交付范围、风险；付范围、风险点和验收口径，支持团队按计划推进项目。",
+          "bold_phrases_used": [
+            "付范围、风险点和验收口径，支持团队按计划推进项目。"
+          ],
+          "terminal_bold_phrase": "付范围、风险点和验收口径，支持团队按计划推进项目。",
+          "source_ingestion_ids": [
+            "fixture-work-05"
+          ],
+          "assertions": [
+            {
+              "text": "围绕客户需求整理交付",
+              "source_ingestion_id": "fixture-work-05"
+            },
+            {
+              "text": "围绕客户需求整理交付范围、风险",
+              "source_ingestion_id": "fixture-work-05"
+            },
+            {
+              "text": "付范围、风险点和验收口径，支持团队按计划推进项目。",
+              "source_ingestion_id": "fixture-work-05"
+            }
+          ],
+          "business_structure": null
+        },
+        {
+          "text": "汇总用户反馈和问题清；汇总用户反馈和问题清单，推动产；题清单，推动产品、研发与运营确认优先级并完成闭环。",
+          "bold_phrases_used": [
+            "题清单，推动产品、研发与运营确认优先级并完成闭环。"
+          ],
+          "terminal_bold_phrase": "题清单，推动产品、研发与运营确认优先级并完成闭环。",
+          "source_ingestion_ids": [
+            "fixture-work-06"
+          ],
+          "assertions": [
+            {
+              "text": "汇总用户反馈和问题清",
+              "source_ingestion_id": "fixture-work-06"
+            },
+            {
+              "text": "汇总用户反馈和问题清单，推动产",
+              "source_ingestion_id": "fixture-work-06"
+            },
+            {
+              "text": "题清单，推动产品、研发与运营确认优先级并完成闭环。",
+              "source_ingestion_id": "fixture-work-06"
+            }
+          ],
+          "business_structure": null
+        },
+        {
+          "text": "整理上线准备、培训材料；整理上线准备、培训材料和使用说；料和使用说明，优化业务团队切换新流程的沟通成本。",
+          "bold_phrases_used": [
+            "料和使用说明，优化业务团队切换新流程的沟通成本。"
+          ],
+          "terminal_bold_phrase": "料和使用说明，优化业务团队切换新流程的沟通成本。",
+          "source_ingestion_ids": [
+            "fixture-work-07"
+          ],
+          "assertions": [
+            {
+              "text": "整理上线准备、培训材料",
+              "source_ingestion_id": "fixture-work-07"
+            },
+            {
+              "text": "整理上线准备、培训材料和使用说",
+              "source_ingestion_id": "fixture-work-07"
+            },
+            {
+              "text": "料和使用说明，优化业务团队切换新流程的沟通成本。",
+              "source_ingestion_id": "fixture-work-07"
+            }
+          ],
+          "business_structure": null
+        },
+        {
+          "text": "跟进发布后的异常与改；跟进发布后的异常与改进建议，沉；异常与改进建议，沉淀复盘记录并同步后续迭代计划。",
+          "bold_phrases_used": [
+            "异常与改进建议，沉淀复盘记录并同步后续迭代计划。"
+          ],
+          "terminal_bold_phrase": "异常与改进建议，沉淀复盘记录并同步后续迭代计划。",
+          "source_ingestion_ids": [
+            "fixture-work-08"
+          ],
+          "assertions": [
+            {
+              "text": "跟进发布后的异常与改",
+              "source_ingestion_id": "fixture-work-08"
+            },
+            {
+              "text": "跟进发布后的异常与改进建议，沉",
+              "source_ingestion_id": "fixture-work-08"
+            },
+            {
+              "text": "异常与改进建议，沉淀复盘记录并同步后续迭代计划。",
+              "source_ingestion_id": "fixture-work-08"
+            }
+          ],
+          "business_structure": null
+        }
+      ]
+    }
+  ],
+  "content_mode": "compressed"
 }

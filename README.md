@@ -39,3 +39,7 @@ python scripts/build_resume.py \
 未配置外部 benchmark 时，公开版式错误也不会停在“排队”：Controller 会生成 `candidate_pending_validation` 离线有界候选，等待冻结基准验证；候选不会自动覆盖活动 `SKILL.md`。
 
 社区环境请阅读 [安装说明](INSTALL.md)；零配置建档路线见[此处](references/zero-config-intake-plan.md)；启用 SkillOpt 前请阅读 [50 份基准样本规范](benchmarks/fixture-spec.md)。
+
+## 公开冒烟测试
+
+安装依赖、Typst 和 `Microsoft YaHei` 后，可运行 `python3 scripts/run_smoke_test.py` 检查虚构样例的证据门、Agent A/B Schema、单页 PDF 与交付 manifest。完整安装说明见 [INSTALL.md](INSTALL.md)；真实简历仍应使用 Codex 对话中的私有材料入口。

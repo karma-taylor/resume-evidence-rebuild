@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Private Resume Profile",
   "type": "object",
+  "additionalProperties": false,
   "required": ["identity", "education", "employment", "projects"],
   "properties": {
     "identity": {"type": "object", "required": ["name", "phone", "email", "portfolio_url"], "properties": {"name": {"type": "string"}, "phone": {"type": "string"}, "email": {"type": "string", "format": "email"}, "portfolio_url": {"type": "string", "format": "uri"}, "photo_path": {"type": "string"}, "location": {"type": "string"}, "market": {"enum": ["CN", "NA", "FOREIGN"]}}},

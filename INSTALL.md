@@ -14,7 +14,7 @@
 python3 -m pip install -r scripts/requirements.txt
 ```
 
-从 Typst 官方发行版安装 Typst，并确保 `typst` 位于 `PATH`。中文简历还需要同时具备常规与粗体字形的 CJK 字体；渲染器优先使用 macOS 的 `Heiti SC` 和 `Hiragino Sans GB Interface W6`，随后回退到可用的 Unicode 字体。
+从 Typst 官方发行版安装 Typst，并确保 `typst` 位于 `PATH`。中文简历需要同时具备常规与粗体字形的 `Microsoft YaHei` 字体；这是当前 Typst 与 DOCX 渲染器共同使用的确定性字体。
 
 ## 验证环境
 
@@ -27,15 +27,21 @@ python3 scripts/validate_resume_artifacts.py --skill-dir .
 
 ## 虚构样例冒烟测试
 
-示例仅包含虚构数据。以下命令生成本地 PDF 和可选 DOCX：
+示例仅包含虚构数据。以下命令会自动生成 Agent A/B 文案并生成本地 PDF：
 
 ```bash
 python3 scripts/build_resume.py \
   --profile examples/sample.profile.yaml \
   --template examples/sample-template.yaml \
-  --agent-b-output examples/sample.typeset-plan.json \
+  --inbox examples/sample-inbox.yaml \
   --output-dir /tmp/resume-evidence-demo \
-  --render --docx
+  --render --theme-variant executive_editorial_a
 ```
 
-然后对生成的 PDF 与 manifest 运行几何 QA。不得将该示例档案作为真实简历使用。
+也可以运行公开冒烟测试（它使用隔离临时目录，并检查 PDF、manifest 与 Schema）：
+
+```bash
+python3 scripts/run_smoke_test.py
+```
+
+DOCX 是可选交付格式，建议在安装 LibreOffice 后单独使用 `build_resume.py --docx` 验证。不得将该示例档案作为真实简历使用。

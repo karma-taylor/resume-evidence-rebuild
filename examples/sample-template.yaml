@@ -1,8 +1,9 @@
 id: synthetic-demo
 target_role: 虚构企业 AI 项目经理
 market: NA
-project_ids: [work-calendar, hybrid-rag, sales-agent]
+project_ids: [work-calendar, hybrid-rag, sales-agent, invoice-review]
 sections: [profile, technical-skills, employment, projects, education-certifications]
+technical_skills: 需求梳理、流程设计、跨团队协作、风险跟踪、验收管理、知识检索、权限控制、结构化校验、人工复核、交付复盘、项目排期、异常升级、业务流程优化、证据追踪、结果归档、材料整理、问题拆解、优先级判断、沟通协调、上线准备、用户反馈收集、流程迭代、风险复盘、交付质量跟踪、业务目标拆解、方案评审、范围管理、依赖协调、信息同步、过程记录、变更控制、验收准备、用户培训、问题闭环、数据口径确认、风险预警、阶段复盘、交付节奏管理、跨部门协同、使用反馈分析、文档沉淀、流程标准化与持续改进、业务流程盘点、运营数据复核。
 layout:
   page: A4
   columns: 1

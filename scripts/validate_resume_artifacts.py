@@ -503,17 +503,13 @@ def check_docx_layout_and_photo(docx_path: Path, market: str, overview_texts: se
             continue
         if any(len(row.cells) > 1 for row in table.rows):
             hard_fail("MULTI_COLUMN_LAYOUT_ERROR", f"DOCX body table {table_number} has multiple columns")
-    # The fixed header contains four non-empty paragraphs (name, role and the
-    # two contact rows).  Its contact rows intentionally use header-specific
-    # spacing, so do not apply the body 1.4x/0.5pt contract to them.  Count
-    # non-empty paragraphs rather than XML indexes because the template may
-    # contain an empty spacer paragraph between the two contact rows.
-    nonempty_paragraphs = 0
+    # The fixed header is stored in a marked table and is not part of
+    # document.paragraphs. Every non-empty body paragraph must therefore be
+    # checked directly; counting the first four body paragraphs would let a
+    # malformed renderer bypass the spacing contract.
     for paragraph_number, paragraph in enumerate(document.paragraphs, 1):
         if not is_body_paragraph(paragraph):
             continue
-        nonempty_paragraphs += 1
-        is_fixed_header = nonempty_paragraphs <= 4
         for run in paragraph.runs:
             if run.text.strip():
                 size = resolved_font_size_pt(paragraph, run)
@@ -521,7 +517,7 @@ def check_docx_layout_and_photo(docx_path: Path, market: str, overview_texts: se
                 minimum = 9.0 if is_overview else MIN_BODY_FONT_PT
                 if size is None or size < minimum:
                     hard_fail("FONT_TOO_SMALL_ERROR", f"DOCX paragraph {paragraph_number} uses {size or 0:.1f} pt; body minimum is 10 pt")
-        if not is_fixed_header and not paragraph_spacing_is_compact(paragraph):
+        if not paragraph_spacing_is_compact(paragraph):
             hard_fail("PARAGRAPH_SPACING_ERROR", f"DOCX paragraph {paragraph_number} must use direct 1.4x spacing, or 1.3x with a 5pt inter-bullet gap")
     images = list(iter_docx_image_blobs(document))
     if market == "CN":
@@ -551,16 +547,9 @@ def check_docx_ooxml_spacing(docx_path: Path) -> dict[str, Any]:
     checked = 0
     line_values: list[int] = []
     after_values: list[int] = []
-    nonempty_paragraphs = 0
     for index, paragraph in enumerate(root.xpath(".//w:body/w:p", namespaces=ns), 1):
         text = "".join(paragraph.xpath(".//w:t/text()", namespaces=ns)).strip()
         if not text:
-            continue
-        nonempty_paragraphs += 1
-        # The first four paragraphs are the fixed resume header (name, role,
-        # and the two contact rows). Their spacing is intentionally different
-        # from body paragraphs and is validated by the header-specific checks.
-        if nonempty_paragraphs <= 4:
             continue
         style_node = paragraph.find("./w:pPr/w:pStyle", ns)
         style_name = (style_node.get(qn("w:val"), "") if style_node is not None else "").lower()
@@ -1254,6 +1243,7 @@ def main() -> int:
                 check_delivery_manifest(docx_delivery_manifest, expected_paths={
                     "docx": args.docx,
                     "project_manifest": args.project_manifest,
+                    "docx_project_manifest": args.docx.parent / "docx-project-manifest.json",
                     "theme_vars": args.theme_vars,
                 })
             if args.profile:
