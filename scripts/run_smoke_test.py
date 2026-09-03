@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -12,6 +13,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 
 
 ROOT = Path(__file__).resolve().parents[1]
+ABSOLUTE_PATH_RE = re.compile(r'''(?<![A-Za-z0-9_])/(?:[^\s"']+)''')
 
 
 def validate(instance: object, schema_path: Path, label: str) -> None:
@@ -50,6 +52,8 @@ def failure_diagnostics(output: Path) -> dict[str, object]:
                         for finding in item.get("findings", [])
                         if isinstance(finding, dict) and isinstance(finding.get("code"), str)
                     ],
+                    "reason": ABSOLUTE_PATH_RE.sub("<path>", str(item.get("reason")))[:300]
+                    if item.get("reason") else None,
                 }
                 for item in rounds or []
                 if isinstance(item, dict)

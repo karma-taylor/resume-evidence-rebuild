@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.6 — 2026-09-03
+
+- Extended public PDF smoke diagnostics to include a truncated, path-redacted final render reason when the renderer fails before writing geometry QA. Resume text, private paths, and generated artifact contents remain excluded.
+- Recorded the third public CI verification result: Python 3.11–3.13 passed, while the Noto CJK public render still returned `RENDER_ERROR`; this release does not claim a green public CI until that failure is fixed.
+
 ## 1.0.5 — 2026-09-03
 
 - Fixed public smoke failure diagnostics to inspect both the output root and `quarantine/<run_id>/`, exposing only the actual gate code and other non-sensitive metadata.
