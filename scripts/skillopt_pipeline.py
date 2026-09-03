@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -32,6 +33,7 @@ ALLOWED_OPS = {"add", "remove", "replace"}
 MAX_PATCH_OPS = 3
 MAX_CHAR_DELTA = 450
 PROTECTED_MARKERS = ("## Evidence and safety", "## 证据与安全", "## SkillOpt")
+SHELL_METACHARACTERS = frozenset(";&|<>$`")
 
 # The public JSON Patch contract intentionally uses stable ASCII keys while
 # the human-facing SKILL.md may use localized headings.  Resolve aliases here
@@ -253,7 +255,20 @@ def run_benchmark(command: str, skill_path: Path, label: str) -> BenchmarkScore:
                 "SKILLOPT_BENCHMARK_COMMAND", "SKILLOPT_PROPOSAL_PATH", "SKILLOPT_EXECUTE"):
         env.pop(key, None)
     env.update({"SKILLOPT_SKILL_PATH": str(skill_path), "SKILLOPT_RUN_LABEL": label})
-    completed = subprocess.run(command, shell=True, capture_output=True, text=True, env=env, check=False)
+    try:
+        argv = shlex.split(command)
+    except ValueError as exc:
+        raise RuntimeError(f"benchmark {label} command is not valid shell-free argv: {exc}") from exc
+    if not argv:
+        raise RuntimeError(f"benchmark {label} command is empty")
+    if any(any(character in token for character in SHELL_METACHARACTERS) for token in argv):
+        raise RuntimeError(f"benchmark {label} command contains shell metacharacters; use an executable and arguments")
+    try:
+        completed = subprocess.run(argv, capture_output=True, text=True, env=env, check=False, timeout=120)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"benchmark {label} timed out after 120 seconds") from exc
+    except OSError as exc:
+        raise RuntimeError(f"benchmark {label} could not start: {exc}") from exc
     if completed.returncode:
         raise RuntimeError(f"benchmark {label} failed ({completed.returncode}): {completed.stderr.strip()}")
     try:

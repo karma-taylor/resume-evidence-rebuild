@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Resume Role Template",
   "type": "object",
+  "additionalProperties": false,
   "required": ["id", "target_role", "market", "layout"],
   "properties": {
     "id": {"type": "string"}, "target_role": {"type": "string"}, "market": {"enum": ["CN", "NA", "FOREIGN"]},

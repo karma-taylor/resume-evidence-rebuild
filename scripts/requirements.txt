@@ -1,5 +1,6 @@
 openai>=1.40.0,<2.0.0
 jsonpatch>=1.33,<2.0.0
+jsonschema>=4.0,<5.0
 pydantic>=2.7.0,<3.0.0
 PyYAML>=6.0,<7.0
 python-docx>=1.1.0,<2.0.0

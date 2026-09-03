@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Agent B Typeset Copy — evidence-first terminal emphasis",
   "type": "object",
+  "additionalProperties": false,
   "required": ["projects", "employment"],
   "properties": {
     "content_mode": {"enum": ["normal", "compressed", "expanded"], "default": "normal", "description": "Frozen output budget: normal 40-50, compressed 30-40, expanded 50-130 CJK for project bullets; employment remains 40-50."},

@@ -20,15 +20,40 @@ employment:
       - text: 组织需求澄清、风险跟踪和验收边界确认，沉淀可追溯任务分工与交付记录。
         source_ingestion_id: fixture-work-01
         approved_at: "2026-01-01T00:00:00+00:00"
+        source_hash: 3f29a1abdf6e5dc3e8624efd29a2f93436690648582429b050aa63e261fe3757
       - text: 汇总流程节点、责任边界与数据口径差异，推动需求确认、异常升级和复盘闭环。
         source_ingestion_id: fixture-work-02
         approved_at: "2026-01-01T00:00:00+00:00"
+        source_hash: 3f29a1abdf6e5dc3e8624efd29a2f93436690648582429b050aa63e261fe3757
       - text: 围绕 PDF 账单录入原型梳理用户操作、人工复核、异常处理与结果回写边界。
         source_ingestion_id: fixture-work-03
         approved_at: "2026-01-01T00:00:00+00:00"
+        source_hash: 3f29a1abdf6e5dc3e8624efd29a2f93436690648582429b050aa63e261fe3757
       - text: 维护任务状态、风险清单、验收记录和变更说明，支持跨团队计划对齐与交付复盘。
         source_ingestion_id: fixture-work-04
         approved_at: "2026-01-01T00:00:00+00:00"
+        source_hash: 3f29a1abdf6e5dc3e8624efd29a2f93436690648582429b050aa63e261fe3757
+  - employer: 示例产品公司
+    title: 项目协调经理
+    start: "2020.03"
+    end: "2022.06"
+    highlights:
+      - text: 围绕客户需求整理交付范围、风险点和验收口径，支持团队按计划推进项目。
+        source_ingestion_id: fixture-work-05
+        approved_at: "2026-01-01T00:00:00+00:00"
+        source_hash: 9d5bfe0a6f9936c5419ee8a0b794c17acd6977c1ec2bba86ca4fc1c89d23d37e
+      - text: 汇总用户反馈和问题清单，推动产品、研发与运营确认优先级并完成闭环。
+        source_ingestion_id: fixture-work-06
+        approved_at: "2026-01-01T00:00:00+00:00"
+        source_hash: 9d5bfe0a6f9936c5419ee8a0b794c17acd6977c1ec2bba86ca4fc1c89d23d37e
+      - text: 整理上线准备、培训材料和使用说明，优化业务团队切换新流程的沟通成本。
+        source_ingestion_id: fixture-work-07
+        approved_at: "2026-01-01T00:00:00+00:00"
+        source_hash: 9d5bfe0a6f9936c5419ee8a0b794c17acd6977c1ec2bba86ca4fc1c89d23d37e
+      - text: 跟进发布后的异常与改进建议，沉淀复盘记录并同步后续迭代计划。
+        source_ingestion_id: fixture-work-08
+        approved_at: "2026-01-01T00:00:00+00:00"
+        source_hash: 9d5bfe0a6f9936c5419ee8a0b794c17acd6977c1ec2bba86ca4fc1c89d23d37e
 certifications: [示例云端 AI 专业认证]
 projects:
   - id: work-calendar
@@ -39,24 +64,31 @@ projects:
     claims:
       - id: cal-context
         kind: context
-        text: 任务周期、角色时间窗和冲突状态均在虚构演示数据中建模。
+        text: 业务团队需要在多人排班时同时看清任务周期、角色时间窗和冲突情况，避免重复安排影响交付进度。
         source: 合成样本
         scope: 仅合成环境
         confidence: verified
         allowed_for_resume: true
       - id: cal-control
         kind: control
-        text: 修订令牌拒绝并发写入，并保留虚构的审计记录。
+        text: 在写入前增加冲突校验和预览确认，并用修订令牌拦截并发修改，保留可追溯的审计记录。
         source: 合成样本
         scope: 仅合成环境
         confidence: verified
         allowed_for_resume: true
       - id: cal-delivery
         kind: delivery
-        text: 演示提供写入前预览和结构化校验错误返回机制。
+        text: 演示提供写入前预览和结构化校验错误返回机制，帮助业务人员在提交前确认安排结果。
         source: 合成样本
         scope: 仅合成环境
         confidence: verified
+        allowed_for_resume: true
+      - id: cal-metric
+        kind: metric
+        text: 合成演示覆盖120条排班记录，重复提交提示准确保留，结果仅用于非生产环境验证。
+        source: 合成样本
+        scope: 仅合成环境
+        confidence: bounded
         allowed_for_resume: true
   - id: hybrid-rag
     title: 虚构检索问答工具
@@ -66,28 +98,28 @@ projects:
     claims:
       - id: rag-architecture
         kind: architecture
-        text: ACL 优先过滤位于检索之前，并保留证据引用关联。
+        text: 先按访问权限筛选资料，再做关键词与语义检索，并保留来源引用，方便业务人员复核答案。
         source: 合成样本
         scope: 仅合成环境
         confidence: verified
         allowed_for_resume: true
       - id: rag-context
         kind: context
-        text: 虚构检索演示处理术语差异与访问权限约束问题。
+        text: 业务人员需要在权限不同且术语不统一的资料中快速找到可引用答案，避免越权和重复查找。
         source: 合成样本
         scope: 仅合成环境
         confidence: verified
         allowed_for_resume: true
       - id: rag-control
         kind: control
-        text: ACL 优先过滤位于检索之前，并保留证据引用关联。
+        text: 将访问权限判断放在资料检索之前，并保留来源引用关系，方便业务人员复核答案适用范围。
         source: 合成样本
         scope: 仅合成环境
         confidence: verified
         allowed_for_resume: true
       - id: rag-metric
         kind: metric
-        text: 合成评测结果明确标记为非生产环境范围数据。
+        text: 合成评测覆盖100条问答记录，引用链路全部保留，结果仅用于非生产环境验证和流程演示。
         source: 合成样本
         scope: 仅合成环境
         confidence: bounded
@@ -100,22 +132,63 @@ projects:
     claims:
       - id: sales-context
         kind: context
-        text: 虚构智能体演示分离信息提取、建议与草稿生成步骤。
+        text: 销售团队需要把客户信息、跟进建议和邮件草稿分开处理，避免遗漏关键信息或未经确认直接发送。
         source: 合成样本
         scope: 仅合成环境
         confidence: verified
         allowed_for_resume: true
       - id: sales-control
         kind: control
-        text: 当来源证据缺失时，结构化校验阻断草稿生成流程。
+        text: 当来源材料不足时，先返回提示并阻断草稿生成，要求补充依据后再进入人工复核流程。
         source: 合成样本
         scope: 仅合成环境
         confidence: verified
         allowed_for_resume: true
       - id: sales-delivery
         kind: delivery
-        text: 每一份生成草稿仍必须经过人工复核后方可使用。
+        text: 每一份生成草稿仍必须经过人工复核后方可使用，并保留来源信息和确认记录。
         source: 合成样本
         scope: 仅合成环境
         confidence: verified
+        allowed_for_resume: true
+      - id: sales-metric
+        kind: metric
+        text: 合成演示覆盖80份客户记录，所有草稿均经过人工复核，结果仅用于非生产环境验证。
+        source: 合成样本
+        scope: 仅合成环境
+        confidence: bounded
+        allowed_for_resume: true
+  - id: invoice-review
+    title: 虚构账单复核工具
+    start: "2024.12"
+    end: 至今
+    tags: [PDF, Workflow]
+    claims:
+      - id: invoice-context
+        kind: context
+        text: 财务人员需要从格式不一的账单中快速确认关键信息，避免人工录入遗漏影响后续付款安排。
+        source: 合成样本
+        scope: 仅合成环境
+        confidence: verified
+        allowed_for_resume: true
+      - id: invoice-control
+        kind: control
+        text: 先标记待确认字段和异常项，再安排人工复核，保留每次修改的原因和处理记录。
+        source: 合成样本
+        scope: 仅合成环境
+        confidence: verified
+        allowed_for_resume: true
+      - id: invoice-delivery
+        kind: delivery
+        text: 演示支持复核结果回写和异常清单导出，方便财务人员交接处理和归档留痕。
+        source: 合成样本
+        scope: 仅合成环境
+        confidence: verified
+        allowed_for_resume: true
+      - id: invoice-metric
+        kind: metric
+        text: 合成演示覆盖90份账单记录，异常项均保留人工确认结果，仅用于非生产环境验证。
+        source: 合成样本
+        scope: 仅合成环境
+        confidence: bounded
         allowed_for_resume: true

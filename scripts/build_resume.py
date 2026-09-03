@@ -2389,6 +2389,7 @@ def main() -> int:
             check_delivery_manifest(args.output_dir / "docx-delivery-manifest.json", expected_paths={
                 "docx": args.output_dir / "resume.docx",
                 "project_manifest": args.output_dir / "project-manifest.json",
+                "docx_project_manifest": docx_manifest,
                 "theme_vars": args.output_dir / "theme_vars.json",
             })
             reflow_trace = args.output_dir / "reflow-trace.json"

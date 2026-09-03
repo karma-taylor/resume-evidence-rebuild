@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Isolated Resume Ingestion Inbox",
   "type": "object",
+  "additionalProperties": false,
   "required": ["schema_version", "pending_ingestions"],
   "properties": {
     "schema_version": {"const": "1.0"},

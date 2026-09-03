@@ -33,7 +33,7 @@ from typst_renderer import FROZEN_LAYOUTS  # noqa: E402
 from docx_renderer import BODY_LINE_SPACING, BULLET_LINE_SPACING, BULLET_PARAGRAPH_AFTER_PT, set_compact_paragraph  # noqa: E402
 from validate_resume_artifacts import (  # noqa: E402
     ResumeQAError, begin_render_transaction, check_docx_ooxml_spacing, promote_render_transaction,
-    check_typst_compact_body_spacing, paragraph_spacing_is_compact,
+    check_delivery_manifest, check_typst_compact_body_spacing, paragraph_spacing_is_compact,
     quarantine_render_transaction, MIN_MARGIN_PT, MARGIN_TOLERANCE_PT, margin_below_minimum,
 )
 
@@ -195,7 +195,8 @@ def test_docx_ooxml_spacing_rejects_single_spacing(tmp_path):
     path = tmp_path / "single.docx"
     doc = Document()
     for text in ("姓名", "目标职位", "电话：123 | 邮箱：x@y.com", "地点：深圳 | 作品集：https://x.com"):
-        doc.add_paragraph(text)
+        header = doc.add_paragraph(text)
+        set_compact_paragraph(header)
     paragraph = doc.add_paragraph("正文段落")
     paragraph.paragraph_format.line_spacing = 1.0
     paragraph.paragraph_format.space_after = Pt(0.5)
@@ -208,7 +209,8 @@ def test_docx_ooxml_spacing_accepts_exact_14x_contract(tmp_path):
     path = tmp_path / "compact.docx"
     doc = Document()
     for text in ("姓名", "目标职位", "电话：123 | 邮箱：x@y.com", "地点：深圳 | 作品集：https://x.com"):
-        doc.add_paragraph(text)
+        header = doc.add_paragraph(text)
+        set_compact_paragraph(header)
     paragraph = doc.add_paragraph("正文段落")
     set_compact_paragraph(paragraph)
     doc.save(path)
@@ -680,6 +682,28 @@ def test_direct_renderer_requires_gate_before_writing_delivery_manifest(tmp_path
         typst_renderer.main()
     assert not (output / "resume.pdf").exists()
     assert not (output / "delivery-manifest.json").exists()
+
+
+def test_docx_delivery_manifest_detects_post_qa_project_manifest_tampering(tmp_path: Path):
+    files = {name: tmp_path / name for name in ("resume.docx", "project-manifest.json", "docx-project-manifest.json", "theme_vars.json")}
+    for path in files.values():
+        path.write_bytes(b"fixture")
+    manifest = tmp_path / "docx-delivery-manifest.json"
+    manifest.write_text(json.dumps({
+        "status": "eligible_for_approval",
+        "sha256": {
+            "docx": hashlib.sha256(files["resume.docx"].read_bytes()).hexdigest(),
+            "project_manifest": hashlib.sha256(files["project-manifest.json"].read_bytes()).hexdigest(),
+            "docx_project_manifest": hashlib.sha256(files["docx-project-manifest.json"].read_bytes()).hexdigest(),
+            "theme_vars": hashlib.sha256(files["theme_vars.json"].read_bytes()).hexdigest(),
+        },
+    }), encoding="utf-8")
+    expected = {"docx": files["resume.docx"], "project_manifest": files["project-manifest.json"],
+                "docx_project_manifest": files["docx-project-manifest.json"], "theme_vars": files["theme_vars.json"]}
+    check_delivery_manifest(manifest, expected_paths=expected)
+    files["docx-project-manifest.json"].write_bytes(b"tampered")
+    with pytest.raises(ResumeQAError, match="docx_project_manifest"):
+        check_delivery_manifest(manifest, expected_paths=expected)
 
 
 def test_unbound_ascii_metric_injection_is_evidence_blocked():
