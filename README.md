@@ -40,6 +40,145 @@ python scripts/build_resume.py \
 
 社区环境请阅读 [安装说明](INSTALL.md)；零配置建档路线见[此处](references/zero-config-intake-plan.md)；启用 SkillOpt 前请阅读 [50 份基准样本规范](benchmarks/fixture-spec.md)。
 
+## 更新记录
+
+### 1.0.3 — 2026-09-03
+
+本版本完成公开发布前的验证链路加固：
+
+- 统一 Data Probe、Agent B、Reflow、交付门禁和 benchmark runner 的结果契约为 `eligible_for_approval`、`bounded`、`needs_user_input`、`blocked`；旧版 `ready` 及历史 gate 状态只在输入归一化时兼容，不再作为新的内部结果输出。
+- 修复 Agent B 的工作经历 fallback：`architecture`、`control`、`delivery` 结果在没有数字指标时也可以形成合法业务 bullet；只有完全没有合格结果 Claim 时才请求用户补充。
+- 修复目录型 Validation Gate：以包含合法 `manifest.json` 的 fixture 目录作为唯一原子样本，忽略 `expected.json`、`PROCESSING-STATUS.json` 和运行报告，并输出统一的 `BenchmarkScore`，包括总数、通过数、A4 通过率、错误码统计和安全哨兵。
+- 增加私有 50 份 runner：每个 fixture 使用隔离运行目录；单个样本超时或失败不会中止全量执行；PDF、DOCX、route、artifact 和 error code 均进行确定性核对；私有简历、JD、profile、trace 和生成物不上传公共 CI artifact。
+- 完善证据恢复和版式 Reflow：压缩、扩写、整项目裁剪均只能使用已授权 Claim；每次恢复保留 trace；清除 stale quarantine 对当前结果的影响；禁止用字体缩小、双栏或未绑定文案绕过门禁。
+- 修复 DOCX 交付链：保持 10pt 正文、精确 OOXML 行距和相邻 bullet 间距，使用 LibreOffice 实际渲染检查单页 A4；DOCX 失败只返回 `blocked`，不推翻已经通过的 PDF。
+- 增加公共 CI 的 PDF smoke、环境检查和本机绝对路径检查；增加手动触发的私有 self-hosted runner workflow；补充 Typst 0.15.1、可再分发测试字体、Microsoft YaHei 和 LibreOffice 的环境策略。
+- 本轮本地验收：71 个测试通过；公共 smoke、技能产物 QA、私有基准结构校验通过；50 份实际行为验证连续两轮均为 `50/50`，A4 QA 为 100%，安全哨兵失败为 0，逐 fixture 结果完全一致。
+
+### 1.0.2 — 2026-09-03
+
+- 将私有基准统一为 `fixture-01/` 至 `fixture-50/` 目录，每个目录包含 `manifest.json`、`expected.json`、`profile.yaml`、`template.yaml` 和 `materials/inbox.yaml`。
+- 增加 manifest、expected 和 synthetic manifest Schema；校验覆盖类型、路由、sentinel、材料哈希、脱敏标记和私有/合成来源边界。
+- 增加私有基准初始化、脱敏标准化和本地运行脚本；明确合成样本不能冒充已审核的人类脱敏样本。
+
+### 1.0.1 — 2026-09-03
+
+- 增加公开合成 fixture、源材料哈希和 Schema 校验。
+- 增加安全 PDF smoke、确定性字体/环境检查和 DOCX delivery manifest 校验。
+- 加固 SkillOpt benchmark command、quarantine、发布、贡献和 CI 文档。
+
+### 1.0.0 — 2026-09-02
+
+- 首次公开发布证据优先的简历重构 Skill，提供私有事实档案、JD 驱动项目选择、Agent A/B、Typst 单页 A4 PDF 和确定性证据/版式门禁。
+
 ## 公开冒烟测试
 
 安装依赖、Typst 和 `Microsoft YaHei` 后，可运行 `python3 scripts/run_smoke_test.py` 检查虚构样例的证据门、Agent A/B Schema、单页 PDF 与交付 manifest。完整安装说明见 [INSTALL.md](INSTALL.md)；真实简历仍应使用 Codex 对话中的私有材料入口。
+
+## 从材料到交付：完整操作
+
+### 1. 建立并审核事实池
+
+对已有文本、PDF 或 DOCX，先扫描到 Git 忽略的 inbox；扫描结果只是候选事实，不能直接进入简历：
+
+```bash
+python3 scripts/ingest_resume.py scan \
+  --source /private/path/resume.pdf \
+  --employer "已确认的雇主名称" \
+  --inbox /private/path/ingestion_inbox.yaml \
+  --ingestion-id resume_20260903
+```
+
+检查 `ingestion_inbox.yaml` 后，仅批准用户确认的 ingestion ID：
+
+```bash
+python3 scripts/ingest_resume.py approve \
+  --inbox /private/path/ingestion_inbox.yaml \
+  --profile /private/path/profiles/private.yaml \
+  --ingestion-ids resume_20260903_01 resume_20260903_02
+```
+
+普通用户不需要手写这些文件；在 Codex 中上传材料并明确确认即可。CLI 只适合已经有私有档案的高级用户。
+
+### 2. 创建 JD 简报并绑定本地证据
+
+JD 文本本身存放在 Git 忽略目录，例如 `/private/path/job-description.txt`。先计算原文哈希，再写入符合 `schemas/jd-brief.schema.json` 的 JSON：
+
+```bash
+python3 - <<'PY'
+import hashlib, pathlib
+path = pathlib.Path('/private/path/job-description.txt')
+print(hashlib.sha256(path.read_bytes()).hexdigest())
+PY
+```
+
+最小 `jd-brief.json` 示例：
+
+```json
+{
+  "schema_version": "1.0",
+  "target_role": "企业 AI 项目经理",
+  "jd_text_sha256": "将上一步输出填入这里",
+  "max_projects": 3,
+  "requirements": [
+    {
+      "id": "req-01",
+      "text": "推动跨团队 AI 项目交付",
+      "keywords": ["项目交付", "跨团队"],
+      "priority": "required"
+    }
+  ]
+}
+```
+
+只对用户明确提供的本地项目目录执行只读扫描：
+
+```bash
+python3 scripts/jd_project_selector.py scan \
+  --jd-brief /private/path/jd-brief.json \
+  --project-dir project-a=/private/path/project-a \
+  --project-dir project-b=/private/path/project-b \
+  --output /private/path/jd-evidence-map.json
+```
+
+### 3. 生成 PDF 和可选 DOCX
+
+```bash
+python3 scripts/build_resume.py \
+  --profile /private/path/profiles/private.yaml \
+  --template templates/ai-project-manager.yaml \
+  --inbox /private/path/ingestion_inbox.yaml \
+  --jd-brief /private/path/jd-brief.json \
+  --jd-evidence-map /private/path/jd-evidence-map.json \
+  --output-dir /private/path/output \
+  --render --theme-variant executive_editorial_a
+```
+
+只有 PDF 通过证据、字体、几何和单页 QA 后，才允许追加 `--docx`。`delivery-manifest.json` 才是可交付依据；`resume.pdf` 或失败目录中的文件不能直接当作交付物。
+
+### 4. 失败处理
+
+| 状态或错误 | 处理 |
+| --- | --- |
+| `eligible_for_approval` | 检查交付 manifest 后进入人工批准；旧输入 `ready` 会归一化为此状态 |
+| `bounded` | 保留证据边界，不能补写指标 |
+| `needs_user_input` | 补充或确认缺失事实后重新构建 |
+| `blocked` | 检查 Claim、来源哈希、JD 映射、授权状态或物理交付门控；旧 `evidence_gate_blocked` / `layout_gate_blocked` / `delivery_gate_blocked` 会归一化为此状态 |
+| `quarantine/` | 只读取脱敏诊断；不要把其中内容复制到公开仓库 |
+
+## 自动化验证
+
+公开 CI 只运行合成样例、Schema、单元测试和公开 PDF 冒烟；不读取任何候选人档案。授权的 50 份私有基准通过本机或私有 runner 的 `private-benchmark.yml` 运行，基准正文和生成物不会上传。
+
+本地私有验证：
+
+```bash
+python3 scripts/validate_private_benchmark.py \
+  --fixture-root /private/path/benchmarks/private
+python3 scripts/run_private_benchmark.py \
+  --fixture-root /private/path/benchmarks/private \
+  --output-dir /private/path/benchmark-results \
+  --fail-on-mismatch
+```
+
+基准验证通过后，SkillOpt 仍须经过 `scripts/skillopt_validation_gate.py` 和人工评审；不会自动覆盖活动 `SKILL.md`。

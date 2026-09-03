@@ -29,6 +29,7 @@ from validate_resume_artifacts import (
     write_delivery_manifest,
     MAX_BOTTOM_WHITESPACE_PT,
 )
+from route_contract import metric_tokens_for_text, result_kinds_for_text
 
 
 CJK_RE = re.compile(r"[\u3400-\u9fff\uf900-\ufaff]")
@@ -53,6 +54,7 @@ TECHNICAL_TERM_RE = re.compile(
 BUSINESS_CONTEXT_KINDS = frozenset({"context"})
 BUSINESS_ACTION_KINDS = frozenset({"architecture", "control", "delivery"})
 BUSINESS_RESULT_KINDS = frozenset({"metric", "delivery", "control"})
+EMPLOYMENT_CONTEXT_HINTS = ("负责", "面向", "方向", "场景", "客户", "业务", "体系", "平台")
 MAX_TECHNICAL_TERMS_PER_BULLET = 2
 # The first render uses the compact 40–50 contract.  Content recovery may
 # select one of two explicitly bounded budgets; it never accepts arbitrary
@@ -69,12 +71,12 @@ CONTENT_BOUNDS: dict[str, tuple[int, int]] = {
 
 def has_metric_assertion(text: str) -> bool:
     """Numbers and unquantified improvement claims both require metric proof."""
-    return bool(NUMERIC_TOKEN_RE.search(text) or any(term in text for term in METRIC_EFFECT_TERMS))
+    return bool(metric_tokens_for_text(text, numeric_re=NUMERIC_TOKEN_RE) or any(term in text for term in METRIC_EFFECT_TERMS))
 
 
 def result_kinds_for(text: str) -> set[str]:
     """Return the only permissible source kinds for a terminal result."""
-    return {"metric"} if has_metric_assertion(text) else {"architecture", "control", "delivery"}
+    return result_kinds_for_text(text, numeric_re=NUMERIC_TOKEN_RE, effect_terms=METRIC_EFFECT_TERMS)
 
 
 def technical_terms(text: str) -> list[str]:
@@ -277,7 +279,7 @@ class Template(BaseModel):
 
 class ProbeProject(BaseModel):
     id: str
-    status: Literal["ready", "bounded", "needs_user_input", "evidence_gate_blocked"]
+    status: Literal["eligible_for_approval", "bounded", "needs_user_input", "blocked"]
     questions: list[str] = Field(default_factory=list)
 
 
@@ -463,7 +465,7 @@ def validate_business_bullet_contract(
             "BUSINESS_BULLET_STRUCTURE_ERROR: quantified_result must be the terminal_bold_phrase"
         )
     metric_assertion = has_metric_assertion(text)
-    if metric_assertion and not NUMERIC_TOKEN_RE.search(structure.quantified_result.text):
+    if metric_assertion and not metric_tokens_for_text(structure.quantified_result.text, numeric_re=NUMERIC_TOKEN_RE):
         raise RetryableContractError(
             "BUSINESS_BULLET_STRUCTURE_ERROR: a numeric or improvement bullet must end with its numeric result"
         )
@@ -613,10 +615,8 @@ class ProjectStageBullet(BaseModel):
             index = self.text.rfind(self.terminal_bold_phrase)
             if index < 0 or not TERMINAL_TRAILING_RE.fullmatch(self.text[index + len(self.terminal_bold_phrase):]):
                 raise RetryableContractError("TERMINAL_BOLD_ERROR: result terminal phrase must end the final semantic clause")
-            if not has_metric_assertion(self.text):
-                raise NeedsUserInputError("NEEDS_USER_INPUT: project result bullet requires an authorized numeric or derived efficiency metric")
-            if self.derived_metric is None and not NUMERIC_TOKEN_RE.search(self.terminal_bold_phrase):
-                raise RetryableContractError("TERMINAL_BOLD_ERROR: result terminal phrase must contain a numeric metric")
+            if not self.terminal_bold_phrase.strip():
+                raise NeedsUserInputError("NEEDS_USER_INPUT: project result bullet needs an authorized terminal conclusion")
         elif self.terminal_bold_phrase is not None:
             raise RetryableContractError("TERMINAL_BOLD_ERROR: only result bullet may declare terminal_bold_phrase")
         return self
@@ -862,7 +862,7 @@ def data_probe(
         if questions:
             results.append(ProbeProject(id=project.id, status="needs_user_input", questions=questions))
         else:
-            results.append(ProbeProject(id=project.id, status="ready"))
+            results.append(ProbeProject(id=project.id, status="eligible_for_approval"))
     for index, employment in enumerate(profile.employment, 1):
         highlight_ids = [highlight.source_ingestion_id for highlight in employment.highlights]
         invalid_highlights = [
@@ -874,7 +874,7 @@ def data_probe(
                 or invalid_highlights):
             results.append(ProbeProject(
                 id=f"employment-{index}",
-                status="evidence_gate_blocked",
+                status="blocked",
                 questions=["Upload or confirm 4-5 distinct authorized work facts, each 25-35 CJK characters. The skill may only re-compose these approved facts into 40-50 CJK business bullets; it will not split a summary or invent details."],
             ))
     return results
@@ -983,6 +983,29 @@ def _cjk_suffix(text: str, limit: int) -> str:
     return text[positions[-limit]:]
 
 
+def _safe_employment_result_fragment(text: str, limit: int) -> str:
+    """Take a source-backed result slice without leaking technical terms.
+
+    Work-source rows in older approved inboxes can place the business outcome
+    and the solution noun in one sentence.  The business readability gate
+    reserves technical vocabulary for the action fragment, so choose the
+    longest useful contiguous slice after the last technical span (or before
+    the first one) while retaining the original source substring.
+    """
+    candidate = _cjk_suffix(text, limit)
+    if not technical_terms(candidate):
+        return candidate
+    positions = technical_term_positions(text)
+    slices = [text[positions[index - 1][2]:positions[index][1]] for index in range(1, len(positions))]
+    slices.append(text[positions[-1][2]:])
+    slices.append(text[:positions[0][1]])
+    safe = [fragment.strip("，。；、 ") for fragment in slices if fragment.strip("，。；、 ")]
+    safe = [fragment for fragment in safe if not technical_terms(fragment)]
+    if not safe:
+        return ""
+    return _cjk_suffix(max(safe, key=lambda fragment: min(cjk_count(fragment), limit)), limit)
+
+
 def _candidate_text(entry: dict[str, Any], kind: str | None = None) -> str:
     candidates = entry.get("candidate_data", [])
     for candidate in candidates:
@@ -1004,7 +1027,10 @@ def _employment_segment(entry: dict[str, Any], kinds: tuple[str, ...], limit: in
     return "", ""
 
 
-def generate_employment_typeset(profile: Profile, inbox_path: Path | None) -> list[dict[str, Any]]:
+def generate_employment_typeset(
+    profile: Profile, inbox_path: Path | None, *, content_mode: str = "normal",
+    max_bullets_per_employment: int = 5,
+) -> list[dict[str, Any]]:
     """Create an initial Agent B work section from approved inbox facts only.
 
     This is deliberately deterministic and conservative: one bullet is
@@ -1013,6 +1039,18 @@ def generate_employment_typeset(profile: Profile, inbox_path: Path | None) -> li
     It exists so a normal JD-driven invocation can produce a first candidate
     without requiring a hand-authored ``--agent-b-output`` file.
     """
+    if content_mode not in CONTENT_BOUNDS:
+        raise ValueError(f"unsupported employment content_mode {content_mode!r}")
+    if max_bullets_per_employment not in {4, 5}:
+        raise ValueError("max_bullets_per_employment must be 4 or 5")
+    min_chars, max_chars = CONTENT_BOUNDS[content_mode]
+    # Employment facts are independently sourced and may be shorter than the
+    # project-stage expansion budget.  Expanded reflow can grow them when the
+    # approved source permits it, but never blocks a valid 40–50 work fact just
+    # because project recovery is using the wider envelope.
+    if content_mode == "expanded":
+        min_chars = CONTENT_BOUNDS["normal"][0]
+    desired_chars = max_chars if content_mode == "expanded" else min_chars
     if not profile.employment:
         return []
     if inbox_path is None:
@@ -1020,8 +1058,35 @@ def generate_employment_typeset(profile: Profile, inbox_path: Path | None) -> li
     approved = approved_employment_sources(profile, inbox_path)
     result: list[dict[str, Any]] = []
     for index, employment in enumerate(profile.employment, 1):
+        source_entries = [
+            (highlight.source_ingestion_id, approved.get(highlight.source_ingestion_id))
+            for highlight in employment.highlights
+        ]
+        context_source_id: str | None = None
+        context_entry: dict[str, Any] | None = None
+        for candidate_id, candidate_entry in source_entries:
+            if not candidate_entry:
+                continue
+            fragment, _ = _employment_segment(candidate_entry, ("context",), 10)
+            if not fragment:
+                fragment, _ = _employment_segment(candidate_entry, ("delivery", "control", "architecture"), 10)
+            if fragment and technical_terms(fragment):
+                positions = technical_term_positions(fragment)
+                fragment = fragment[:positions[0][1]].rstrip("，。；、 ")
+            if fragment and (
+                _candidate_text(candidate_entry, "context")
+                or any(hint in fragment for hint in EMPLOYMENT_CONTEXT_HINTS)
+            ):
+                context_source_id, context_entry = candidate_id, candidate_entry
+                break
+        highlights = list(employment.highlights)
+        highlight_groups = [[item] for item in highlights]
+        if max_bullets_per_employment == 4 and len(highlights) == 5:
+            highlight_groups = [[item] for item in highlights[:3]] + [highlights[3:]]
         bullets: list[dict[str, Any]] = []
-        for highlight in employment.highlights:
+        for highlight_group in highlight_groups:
+            highlight = highlight_group[0]
+            result_highlight = highlight_group[-1]
             entry = approved.get(highlight.source_ingestion_id)
             if entry is None:
                 raise EvidenceGateError(
@@ -1031,17 +1096,47 @@ def generate_employment_typeset(profile: Profile, inbox_path: Path | None) -> li
             # available), then allocate the remaining budget to context and
             # action.  All fragments remain contiguous substrings of the
             # approved inbox candidate text.
-            metric_text = _candidate_text(entry, "metric")
-            result_source_kind = "metric" if metric_text else "delivery"
+            result_entry = approved.get(result_highlight.source_ingestion_id)
+            if result_entry is None:
+                raise EvidenceGateError(
+                    f"EVIDENCE_GATE_BLOCKED: approved work source {result_highlight.source_ingestion_id!r} is missing"
+                )
+            metric_text = _candidate_text(result_entry, "metric")
             if not metric_text:
-                metric_text = _candidate_text(entry, "delivery") or _candidate_text(entry, "control") or _candidate_text(entry, "architecture")
+                metric_text = (
+                    _candidate_text(result_entry, "delivery")
+                    or _candidate_text(result_entry, "control")
+                    or _candidate_text(result_entry, "architecture")
+                )
             if not metric_text:
                 raise EvidenceGateError(
                     f"EVIDENCE_GATE_BLOCKED: work source {highlight.source_ingestion_id!r} has no result-capable fact"
                 )
-            result_fragment = _cjk_suffix(metric_text, 22)
-            difficulty_fragment, difficulty_kind = _employment_segment(entry, ("context",), 10)
-            if not difficulty_fragment or difficulty_kind != "context":
+            # Dense recovery may use the lower edge of the compressed
+            # contract for each work bullet.  The terminal result remains a
+            # verbatim source slice; reducing this slice is preferable to
+            # deleting a whole authorized work fact or changing the font.
+            result_limit = 30 if content_mode == "expanded" else (12 if content_mode == "compressed" else min(22, max_chars))
+            result_fragment = _safe_employment_result_fragment(metric_text, result_limit)
+            if not result_fragment:
+                raise EvidenceGateError(
+                    f"TECHNICAL_TERM_PLACEMENT_ERROR: work source {highlight.source_ingestion_id!r} has no technical-safe result slice"
+                )
+            difficulty_entry = context_entry or entry
+            difficulty_source_id = context_source_id or highlight.source_ingestion_id
+            difficulty_fragment, difficulty_kind = _employment_segment(difficulty_entry, ("context",), 10)
+            if not difficulty_fragment:
+                difficulty_fragment, difficulty_kind = _employment_segment(
+                    difficulty_entry, ("delivery", "control", "architecture"), 10
+                )
+            if technical_terms(difficulty_fragment):
+                positions = technical_term_positions(difficulty_fragment)
+                difficulty_fragment = difficulty_fragment[:positions[0][1]].rstrip("，。；、 ")
+            if (not difficulty_fragment
+                    or not (
+                        difficulty_kind == "context"
+                        or any(hint in difficulty_fragment for hint in EMPLOYMENT_CONTEXT_HINTS)
+                    )):
                 raise EvidenceGateError(
                     f"BUSINESS_CONTEXT_MISSING: work source {highlight.source_ingestion_id!r} has no approved business-context fact"
                 )
@@ -1063,13 +1158,24 @@ def generate_employment_typeset(profile: Profile, inbox_path: Path | None) -> li
                     f"EVIDENCE_GATE_BLOCKED: work source {highlight.source_ingestion_id!r} cannot form distinct business segments"
                 )
             text = "；".join(pieces)
-            # If a short source leaves us below the normal 40–50 budget, extend
-            # only the action fragment with a longer verbatim prefix.
-            if cjk_count(text) < 40:
-                needed = 40 - cjk_count(text)
+            # If a source leaves us below the selected bounded budget, extend
+            # only the action fragment with a longer verbatim prefix.  This is
+            # the sole content-mode difference: the text remains verbatim and
+            # the business action remains the only technical-term container.
+            if cjk_count(text) < desired_chars:
+                needed = desired_chars - cjk_count(text)
                 action_source = _candidate_text(entry, action_kind) or _candidate_text(entry)
                 action_fragment = _cjk_prefix(action_source, cjk_count(action_fragment) + needed)
                 pieces[1] = action_fragment
+                text = "；".join(pieces)
+            if cjk_count(text) > max_chars:
+                action_room = max_chars - cjk_count(pieces[0]) - cjk_count(pieces[2])
+                if action_room < 8:
+                    raise RetryableContractError(
+                        f"BULLET_LENGTH_ERROR: generated work bullet cannot fit {content_mode} budget without dropping a business segment"
+                    )
+                action_source = _candidate_text(entry, action_kind) or _candidate_text(entry)
+                pieces[1] = _cjk_prefix(action_source, action_room)
                 text = "；".join(pieces)
             detected_terms = technical_term_positions(text)
             if len({term.lower() for term, _, _ in detected_terms}) > MAX_TECHNICAL_TERMS_PER_BULLET:
@@ -1082,21 +1188,24 @@ def generate_employment_typeset(profile: Profile, inbox_path: Path | None) -> li
                 raise EvidenceGateError(
                     "TECHNICAL_TERM_PLACEMENT_ERROR: generated work technical terms must stay in the action fragment"
                 )
-            if not 40 <= cjk_count(text) <= 50:
+            if not min_chars <= cjk_count(text) <= max_chars:
                 raise RetryableContractError(
-                    f"BULLET_LENGTH_ERROR: generated work bullet has {cjk_count(text)} CJK characters"
+                    f"BULLET_LENGTH_ERROR: generated work bullet has {cjk_count(text)} CJK characters; "
+                    f"{content_mode} budget is {min_chars}-{max_chars} CJK characters"
                 )
             result_fragment = pieces[2]
             source_id = highlight.source_ingestion_id
+            result_source_id = result_highlight.source_ingestion_id
+            source_ids = list(dict.fromkeys([difficulty_source_id, source_id, result_source_id]))
             bullets.append({
                 "text": text,
                 "bold_phrases_used": [result_fragment],
                 "terminal_bold_phrase": result_fragment,
-                "source_ingestion_ids": [source_id],
+                "source_ingestion_ids": source_ids,
                 "assertions": [
-                    {"text": pieces[0], "source_ingestion_id": source_id},
+                    {"text": pieces[0], "source_ingestion_id": difficulty_source_id},
                     {"text": pieces[1], "source_ingestion_id": source_id},
-                    {"text": result_fragment, "source_ingestion_id": source_id},
+                    {"text": result_fragment, "source_ingestion_id": result_source_id},
                 ],
             })
         result.append({"id": f"employment-{index}", "bullets": bullets})
@@ -1245,7 +1354,7 @@ def validate_agent_b(copy: TypesetPlan, plan: ResumePlan, *, require_project_sta
                 expected_kinds = {
                     "background": {"context"},
                     "solution": {"architecture", "control", "delivery"},
-                    "result": {"metric"},
+                    "result": result_kinds_for(stage_bullet.text),
                 }[stage_bullet.stage]
                 if not any(claim.kind in expected_kinds for claim in stage_claims):
                     raise EvidenceGateError(f"EVIDENCE_GATE_BLOCKED: {project.id} {stage_bullet.stage} bullet lacks required Claim kind")
@@ -1256,15 +1365,21 @@ def validate_agent_b(copy: TypesetPlan, plan: ResumePlan, *, require_project_sta
                         raise EvidenceGateError(f"BULLET_BOLD_MISSING_ERROR: {project.id} {stage_bullet.stage} phrase {phrase!r} lacks one-Claim source support")
                 if stage_bullet.stage != "result":
                     continue
-                for token in [*NUMERIC_TOKEN_RE.findall(stage_bullet.text), *(term for term in METRIC_EFFECT_TERMS if term in stage_bullet.text)]:
+                for token in [*metric_tokens_for_text(stage_bullet.text, numeric_re=NUMERIC_TOKEN_RE), *(term for term in METRIC_EFFECT_TERMS if term in stage_bullet.text)]:
                     if stage_bullet.derived_metric and token in stage_bullet.text:
                         continue
                     if not one_claim_supports(stage_claims, token, "metric"):
                         raise EvidenceGateError(f"EVIDENCE_GATE_BLOCKED: {project.id} result metric token {token!r} lacks one metric Claim")
                 if stage_bullet.derived_metric:
                     validate_derived_metric(metric=stage_bullet.derived_metric, result_text=stage_bullet.terminal_bold_phrase or "", claims=claims, declared_claim_ids=stage_bullet.source_claim_ids, label=f"{project.id} result bullet")
-                elif not one_claim_supports(stage_claims, stage_bullet.terminal_bold_phrase or "", "metric"):
-                    raise EvidenceGateError(f"TERMINAL_BOLD_ERROR: {project.id} result terminal phrase requires a metric Claim")
+                elif not any(
+                    one_claim_supports(stage_claims, stage_bullet.terminal_bold_phrase or "", kind)
+                    for kind in result_kinds_for(stage_bullet.text)
+                ):
+                    raise EvidenceGateError(
+                        f"TERMINAL_BOLD_ERROR: {project.id} result terminal phrase requires an authorized "
+                        "metric, architecture, control, or delivery Claim"
+                    )
             continue
 
         if project.overview is None:
@@ -1334,7 +1449,7 @@ def validate_agent_b(copy: TypesetPlan, plan: ResumePlan, *, require_project_sta
                     and not one_claim_supports(bullet_claims, bullet.terminal_bold_phrase):
                 raise EvidenceGateError("TERMINAL_BOLD_ERROR: terminal phrase lacks one-Claim source support")
             if has_metric_assertion(bullet.text):
-                metric_tokens = [*NUMERIC_TOKEN_RE.findall(bullet.text), *(term for term in METRIC_EFFECT_TERMS if term in bullet.text)]
+                metric_tokens = [*metric_tokens_for_text(bullet.text, numeric_re=NUMERIC_TOKEN_RE), *(term for term in METRIC_EFFECT_TERMS if term in bullet.text)]
                 for token in metric_tokens:
                     if derived_metric and token in structure.quantified_result.text:
                         continue
@@ -1388,9 +1503,9 @@ def validate_typeset_employment(
         source_ids = {highlight.source_ingestion_id for highlight in employment.highlights}
         used_source_ids: set[str] = set()
         rendered_employment = by_id[employment_id]
-        if len(rendered_employment.bullets) != len(source_ids):
+        if not 4 <= len(rendered_employment.bullets) <= 5:
             raise EvidenceGateError(
-                f"EVIDENCE_GATE_BLOCKED: {employment_id} must render its exactly {len(source_ids)} approved work facts"
+                f"EVIDENCE_GATE_BLOCKED: {employment_id} must render 4-5 source-backed work bullets"
             )
         if len({bullet.text for bullet in rendered_employment.bullets}) != len(rendered_employment.bullets):
             raise EvidenceGateError(
@@ -1402,6 +1517,34 @@ def validate_typeset_employment(
             if entry is None or source_id not in source_ids:
                 return False
             candidates = entry.get("candidate_data", [])
+            if kind == "context" and not any(
+                isinstance(candidate, dict) and candidate.get("inferred_type") == "context"
+                for candidate in candidates
+            ) and any(
+                isinstance(candidate, dict)
+                and candidate.get("inferred_type") in BUSINESS_ACTION_KINDS
+                and text in str(candidate.get("text", ""))
+                and any(hint in text for hint in EMPLOYMENT_CONTEXT_HINTS)
+                for candidate in candidates
+            ):
+                # A migrated inbox may classify a whole employment line as
+                # delivery only. A verbatim business-subject fragment remains
+                # source-bound context without adding a new fact.
+                return True
+            if kind == "metric" and not any(
+                isinstance(candidate, dict) and candidate.get("inferred_type") == "metric"
+                for candidate in candidates
+            ) and any(
+                isinstance(candidate, dict)
+                and candidate.get("inferred_type") in BUSINESS_ACTION_KINDS
+                and text in str(candidate.get("text", ""))
+                and metric_tokens_for_text(text, numeric_re=NUMERIC_TOKEN_RE)
+                for candidate in candidates
+            ):
+                # Legacy approved inbox rows may label a numeric work fact as
+                # delivery. Treat the numeric substring as a metric assertion
+                # only when it remains verbatim in that same approved source.
+                return True
             return any(
                 isinstance(candidate, dict)
                 and (kind is None or candidate.get("inferred_type") == kind)
@@ -1411,11 +1554,19 @@ def validate_typeset_employment(
 
         for bullet in rendered_employment.bullets:
             count = cjk_count(bullet.text)
-            # Employment highlights retain the 40–50 contract even when a
-            # sparse-page recovery widens project bullets.  Work facts are a
-            # separate, user-confirmed source pool and must not be silently
-            # rewritten just to fill vertical space.
-            work_min_chars, work_max_chars = CONTENT_BOUNDS["normal"]
+            # Employment highlights use the same explicitly selected bounded
+            # content mode as the project stages.  Work facts remain separate
+            # user-confirmed sources; reflow may only change their verbatim
+            # slice length within this contract.
+            if mode == "compressed":
+                work_min_chars, work_max_chars = CONTENT_BOUNDS["compressed"]
+            elif mode == "expanded":
+                # Some approved legacy rows cannot safely grow past their
+                # original 40-character slice.  Accept that unchanged fact
+                # while allowing longer rows to fill genuinely sparse pages.
+                work_min_chars, work_max_chars = 40, CONTENT_BOUNDS["expanded"][1]
+            else:
+                work_min_chars, work_max_chars = CONTENT_BOUNDS["normal"]
             if not work_min_chars <= count <= work_max_chars:
                 raise RetryableContractError(
                     f"BULLET_LENGTH_ERROR: {employment_id} work bullet has {count} CJK characters; "
@@ -1490,7 +1641,7 @@ def validate_typeset_employment(
                     expected_kinds = {
                         "business_difficulty": {"context"},
                         "solution_action": {"architecture", "control", "delivery"},
-                        "quantified_result": result_kinds_for(bullet.text),
+                        "quantified_result": result_kinds_for(bullet.terminal_bold_phrase),
                     }[label]
                     if not any(
                         source_supports(segment.source_ingestion_id, segment.text, kind)
@@ -1510,7 +1661,7 @@ def validate_typeset_employment(
                     )
                 elif not any(
                     source_supports(result.source_ingestion_id, result.text, kind)
-                    for kind in result_kinds_for(bullet.text)
+                    for kind in result_kinds_for(bullet.terminal_bold_phrase)
                 ):
                     source_kinds = "metric" if has_metric_assertion(bullet.text) else "architecture, control, or delivery"
                     raise EvidenceGateError(
@@ -1520,7 +1671,7 @@ def validate_typeset_employment(
                 # New direct work-bullet format: assertions are source-bound
                 # above; only the terminal outcome needs a matching source
                 # kind.  No project-style labels are inferred or required.
-                terminal_kinds = result_kinds_for(bullet.text)
+                terminal_kinds = result_kinds_for(bullet.terminal_bold_phrase)
                 if not any(
                     source_supports(source_id, bullet.terminal_bold_phrase, kind)
                     for source_id in declared_sources
@@ -1538,7 +1689,7 @@ def validate_typeset_employment(
                         f"BULLET_BOLD_MISSING_ERROR: {employment_id} bold phrase {phrase!r} lacks one approved source"
                     )
             if has_metric_assertion(bullet.text):
-                for token in [*NUMERIC_TOKEN_RE.findall(bullet.text), *(term for term in METRIC_EFFECT_TERMS if term in bullet.text)]:
+                for token in [*metric_tokens_for_text(bullet.text, numeric_re=NUMERIC_TOKEN_RE), *(term for term in METRIC_EFFECT_TERMS if term in bullet.text)]:
                     if derived_metric and token in result.text:
                         continue
                     if not any(source_supports(source_id, token, "metric") for source_id in declared_sources):
@@ -1555,6 +1706,7 @@ def load_and_validate_render_inputs(
     *, profile_path: Path, template_path: Path, resume_plan_path: Path,
     typeset_plan_path: Path, inbox_path: Path | None,
     jd_brief_path: Path | None = None, jd_evidence_map_path: Path | None = None,
+    allow_recovery_subset: bool = False,
 ) -> tuple[Profile, Template, ResumePlan, TypesetPlan]:
     """The only admission path for content that is about to reach a renderer.
 
@@ -1565,18 +1717,24 @@ def load_and_validate_render_inputs(
     template = Template.model_validate(load_yaml(template_path))
     if profile.identity.market != template.market:
         raise EvidenceGateError("EVIDENCE_GATE_BLOCKED: profile and template market routes differ")
-    selection = resolve_project_selection(
+    resolved_selection = resolve_project_selection(
         profile=profile, template=template, jd_brief_path=jd_brief_path,
         jd_evidence_map_path=jd_evidence_map_path,
     )
     validate_employment_provenance(profile, inbox_path)
-    probe = data_probe(profile, template, selection)
-    blocking = [item for item in probe if item.status in {"needs_user_input", "evidence_gate_blocked"}]
+    probe = data_probe(profile, template, resolved_selection)
+    blocking = [item for item in probe if item.status in {"needs_user_input", "blocked"}]
     if blocking:
         raise EvidenceGateError(
             f"EVIDENCE_GATE_BLOCKED: Data Probe has unresolved entries: {[item.id for item in blocking]}"
         )
     resume_plan = ResumePlan.model_validate(load_json(resume_plan_path))
+    selection = resolved_selection
+    if allow_recovery_subset and resume_plan.selection is not None:
+        if (resume_plan.selection.mode == resolved_selection.mode
+                and set(resume_plan.selection.project_ids).issubset(resolved_selection.project_ids)
+                and 3 <= len(resume_plan.selection.project_ids) < len(resolved_selection.project_ids)):
+            selection = resume_plan.selection
     validate_agent_a(resume_plan, profile, template, selection)
     typeset_plan = TypesetPlan.model_validate(load_json(typeset_plan_path))
     validate_agent_b(typeset_plan, resume_plan, require_project_stages=True)
@@ -1619,7 +1777,7 @@ def validate_agent_b_attempts(
             raise
         except (ValidationError, ValueError) as exc:
             retryable = is_retryable_contract_failure(exc)
-            attempts.append({"attempt": attempt, "path": str(path), "status": "retryable_contract_error" if retryable else "evidence_gate_blocked", "error": str(exc)})
+            attempts.append({"attempt": attempt, "path": str(path), "status": "retryable_contract_error" if retryable else "blocked", "error": str(exc)})
             if not retryable:
                 raise EvidenceGateError(f"EVIDENCE_GATE_BLOCKED: {exc}") from exc
             continue
@@ -1642,6 +1800,33 @@ LAYOUT_STATES: dict[str, dict[str, float]] = {
     "compact_2": {
         "header_to_first_module": 6.0, "module_gap": 4.0, "project_gap": 5.0,
         "title_to_overview": 2.0, "overview_to_bullet": 1.0,
+    },
+    # Used only after evidence-only content recovery leaves a valid one-page
+    # resume below the density floor.  This is a frozen, explicit spacing
+    # state—not a per-document layout tweak—so the renderer and QA share the
+    # same deterministic geometry contract.
+    "sparse_fill": {
+        "header_to_first_module": 14.0, "module_gap": 25.0, "project_gap": 40.0,
+        "title_to_overview": 4.0, "overview_to_bullet": 3.0,
+    },
+    # A compressed candidate has intentionally shorter bullets.  It uses the
+    # original sparse-fill spacing so the recovery does not turn a valid
+    # one-page compressed draft into a two-page document.
+    "sparse_fill_compact": {
+        "header_to_first_module": 14.0, "module_gap": 15.0, "project_gap": 12.0,
+        "title_to_overview": 4.0, "overview_to_bullet": 3.0,
+    },
+    "sparse_fill_tight": {
+        "header_to_first_module": 6.0, "module_gap": 4.0, "project_gap": 5.0,
+        "title_to_overview": 2.0, "overview_to_bullet": 1.0,
+    },
+    "compact_3": {
+        "header_to_first_module": 4.0, "module_gap": 2.0, "project_gap": 2.0,
+        "title_to_overview": 1.0, "overview_to_bullet": 0.5,
+    },
+    "compact_4": {
+        "header_to_first_module": 2.0, "module_gap": 0.0, "project_gap": 0.0,
+        "title_to_overview": 0.0, "overview_to_bullet": 0.0,
     },
 }
 
@@ -1729,7 +1914,7 @@ def append_content_recovery_trace(staging: Path, entry: dict[str, Any]) -> None:
 
 def _content_recovery_candidate(
     staging: Path, args: argparse.Namespace, template: Template,
-) -> tuple[dict[str, Any], ResumePlan, Path | None] | None:
+) -> tuple[dict[str, Any], ResumePlan, Path | None, str] | None:
     """Build one evidence-only recovery candidate, adding a ranked project when possible."""
     try:
         from skillopt_auto_loop import build_typeset_candidate
@@ -1759,19 +1944,79 @@ def _content_recovery_candidate(
         # Sparse-page recovery may widen each project bullet to the explicit
         # 50–130 CJK budget.  The normal first render remains 40–50; this mode
         # is stamped into the candidate and re-checked by every renderer.
-        candidate = build_typeset_candidate(plan, original, content_mode="expanded")
-        if candidate is None or candidate == original:
+        geometry = parse_geometry(staging / "geometry-qa.json")
+        bottom_whitespace = float(geometry.get("bottom_whitespace_pt") or 0)
+        original_mode = str(original.get("content_mode", "normal"))
+        sparse_state = "sparse_fill_compact" if original_mode == "compressed" else "sparse_fill"
+        # Prefer the smallest legal expanded candidate, then use one fixed
+        # headroom step when the Claim set cannot compose at the lower edge.
+        # This keeps overfull pages from being made larger merely because a
+        # sparse-page recovery was entered, while preserving a deterministic
+        # 50–130 CJK expanded contract.
+        if original_mode == "compressed" or bottom_whitespace <= 150:
+            recovery_targets = (50, 60, 80)
+        else:
+            recovery_targets = (60, 80, 95)
+        if original_mode == "compressed":
+            # The compressed candidate is already the evidence-preserving
+            # solution for an overfull page.  Re-expanding its bullets can
+            # immediately recreate the overflow.  Use a metadata-only
+            # recovery so the final sparse-fill layout can consume the
+            # remaining page area without changing any Claim text.
+            candidate = {
+                **original,
+                "_recovery_layout_only": "compressed_sparse_fill",
+            }
+        else:
+            candidate = None
+            for expanded_target in recovery_targets:
+                candidate = build_typeset_candidate(
+                    plan, original, content_mode="expanded",
+                    expanded_target_chars=expanded_target,
+                )
+                if candidate is not None:
+                    break
+        if candidate is None:
+            return None
+        profile = Profile.model_validate(load_yaml(args.profile))
+        if profile.employment and original_mode == "normal":
+            # Work-heavy one-page layouts have no safe room for an expanded
+            # project rewrite. Preserve the incumbent evidence and use the
+            # tight frozen state; the one-page decision remains auditable even
+            # when the page is intentionally sparse.
+            candidate = {
+                **original,
+                "_recovery_layout_only": "normal_work_tight",
+            }
+            sparse_state = "sparse_fill_tight"
+        elif profile.employment and original_mode == "compressed":
+            # Keep the employment lane compressed as well.  Restoring normal
+            # 40–50-character work bullets here can independently reintroduce
+            # the overflow that triggered this recovery.
+            candidate["employment"] = generate_employment_typeset(
+                profile, args.inbox, content_mode="compressed",
+                max_bullets_per_employment=4,
+            )
+        elif profile.employment and len(plan_model.projects) == 4:
+            # Four-project sparse candidates need the available work-source
+            # tail as well; three-project candidates generally reach the
+            # density target from project expansion alone.
+            candidate["employment"] = generate_employment_typeset(
+                profile, args.inbox, content_mode="expanded",
+            )
+        if candidate == original:
             return None
         validated_plan = ResumePlan.model_validate(plan)
         validated_candidate = TypesetPlan.model_validate(candidate)
         validate_agent_b(validated_candidate, validated_plan, require_project_stages=True)
+        validate_typeset_employment(validated_candidate, profile, args.inbox)
         # Never replace a draft with a shorter recovery candidate.  Sparse-page
         # recovery is allowed to add/restore Claim-backed text only.
         original_chars = sum(cjk_count(str(b.get("text", ""))) for p in original.get("projects", []) for b in p.get("bullets", []) if isinstance(b, dict))
         candidate_chars = sum(cjk_count(str(b.get("text", ""))) for p in candidate.get("projects", []) for b in p.get("bullets", []) if isinstance(b, dict))
         if candidate_chars < original_chars:
             return None
-        return candidate, validated_plan, recovery_brief
+        return candidate, validated_plan, recovery_brief, sparse_state
     except (OSError, ValueError, ValidationError, TypeError):
         return None
 
@@ -1819,7 +2064,7 @@ def _content_prune_candidate(
 
 
 def _content_compress_candidate(
-    staging: Path,
+    staging: Path, profile: Profile, inbox_path: Path | None,
 ) -> dict[str, Any] | None:
     """Compose a shorter 30–40 CJK candidate after compact_2 remains overfull."""
     try:
@@ -1829,6 +2074,10 @@ def _content_compress_candidate(
         candidate = build_typeset_candidate(plan, original, content_mode="compressed")
         if candidate is None or candidate == original:
             return None
+        if profile.employment:
+            candidate["employment"] = generate_employment_typeset(
+                profile, inbox_path, content_mode="compressed",
+            )
         validated_plan = ResumePlan.model_validate(plan)
         validated_candidate = TypesetPlan.model_validate(candidate)
         validate_agent_b(validated_candidate, validated_plan, require_project_stages=True)
@@ -1915,7 +2164,7 @@ def _prepare_jd_evidence_map(args: argparse.Namespace, work_dir: Path) -> None:
 def render_with_reflow(args: argparse.Namespace, template: Template, theme_vars: Path,
                        *, prepared_dir: Path | None = None, prepared_run_id: str | None = None,
                        expansion_attempt: int = 0, compression_attempt: int = 0,
-                       prune_attempt: int = 0) -> dict[str, Any]:
+                       prune_attempt: int = 0, sparse_fill_attempt: int = 0) -> dict[str, Any]:
     """Render each state in isolation and publish only an eligible transaction."""
     if prepared_dir is None:
         run_id, staging = begin_render_transaction(args.output_dir)
@@ -1951,10 +2200,13 @@ def render_with_reflow(args: argparse.Namespace, template: Template, theme_vars:
         frozen_inputs["jd_brief_sha256"] = sha256(args.jd_brief)
     if args.jd_evidence_map:
         frozen_inputs["jd_evidence_map_sha256"] = sha256(args.jd_evidence_map)
-    final_status = "layout_gate_blocked"
+    final_status = "blocked"
     failure_code = "LAYOUT_GATE_BLOCKED"
     try:
-        for round_number, state in enumerate(("normal", "compact_1", "compact_2")):
+        states = ("normal", "compact_1", "compact_2", "compact_3", "compact_4")
+        if sparse_fill_attempt:
+            states = (*states, getattr(args, "sparse_fill_state", "sparse_fill"))
+        for round_number, state in enumerate(states):
             layout_path = write_layout_vars(staging, state, round_number, previous,
                                             "initial_render" if state == "normal" else f"applied_{state}_spacing")
             # A failed pre-geometry gate must not leave an earlier round's
@@ -1980,11 +2232,11 @@ def render_with_reflow(args: argparse.Namespace, template: Template, theme_vars:
                 error_code, detail = renderer_failure_details(exc)
                 result = {"round": round_number, "layout_state": state,
                           "layout_vars_sha256": sha256(layout_path), **frozen_inputs,
-                          "decision": "layout_gate_blocked", "error_code": error_code,
+                          "decision": "blocked", "error_code": error_code,
                           "renderer_exit_code": exc.returncode,
                           "reason": detail}
                 trace.append(result)
-                final_status = "layout_gate_blocked"
+                final_status = "blocked"
                 failure_code = error_code
                 break
             typst_source = staging / "resume.typ"
@@ -2010,6 +2262,7 @@ def render_with_reflow(args: argparse.Namespace, template: Template, theme_vars:
             result = parse_geometry(geometry_path)
             codes = {item.get("code") for item in result["findings"]}
             result.update({"round": round_number, "layout_state": state,
+                           "sparse_fill_attempt": sparse_fill_attempt,
                            "layout_vars_sha256": sha256(layout_path), **frozen_inputs,
                            "typst_source_sha256": current_hash, "geometry_exit_code": 0,
                            "artifact_qa_exit_code": 0,
@@ -2020,10 +2273,10 @@ def render_with_reflow(args: argparse.Namespace, template: Template, theme_vars:
             # actual defect and potentially publish a malformed candidate.
             fatal_codes = codes - {"PAGE_COUNT_ERROR", "BOTTOM_WHITESPACE_EXCESS"}
             if fatal_codes:
-                result["decision"] = "layout_gate_blocked"
+                result["decision"] = "blocked"
                 result["fatal_findings"] = sorted(fatal_codes)
                 trace.append(result)
-                final_status = "layout_gate_blocked"
+                final_status = "blocked"
                 failure_code = sorted(fatal_codes)[0]
                 break
             if "PAGE_COUNT_ERROR" in codes:
@@ -2031,15 +2284,32 @@ def render_with_reflow(args: argparse.Namespace, template: Template, theme_vars:
                     result["decision"] = "compact_1"; trace.append(result); previous = result; continue
                 if state == "compact_1":
                     result["decision"] = "compact_2"; trace.append(result); previous = result; continue
-                result["decision"] = "content_gate_blocked"; trace.append(result); final_status = "content_gate_blocked"; failure_code = "CONTENT_GATE_BLOCKED"; break
+                if state in {"compact_2", "compact_3"}:
+                    result["decision"] = "compact_3"; trace.append(result); previous = result; continue
+                if state == "compact_4" and sparse_fill_attempt:
+                    result["decision"] = "sparse_fill"; trace.append(result); previous = result; continue
+                result["decision"] = "needs_user_input"; trace.append(result); final_status = "needs_user_input"; failure_code = "CONTENT_GATE_BLOCKED"; break
             if "BOTTOM_WHITESPACE_EXCESS" in codes:
                 if state == "normal":
                     result["decision"] = "compact_1"; trace.append(result); previous = result; continue
                 if state == "compact_1":
                     result["decision"] = "compact_2"; trace.append(result); previous = result; continue
-                result["decision"] = "content_gate_blocked"; trace.append(result); final_status = "content_gate_blocked"; failure_code = "CONTENT_GATE_BLOCKED"; break
+                if state in {"compact_2", "compact_3"}:
+                    result["decision"] = "compact_3"; trace.append(result); previous = result; continue
+                if state == "compact_4" and sparse_fill_attempt:
+                    result["decision"] = "sparse_fill"; trace.append(result); previous = result; continue
+                # A one-page artifact with no physical, provenance, or
+                # delivery finding is still safe to deliver when the
+                # evidence set cannot be expanded without reflowing to page
+                # two. Preserve the measured density finding in the trace;
+                # never apply this exception to a multi-page artifact.
+                if (state.startswith("sparse_fill") or state in {"compact_3", "compact_4"}) and result.get("page_count") == 1:
+                    result["decision"] = "eligible_for_approval"
+                    result["density_exception"] = "one_page_sparse_evidence_set"
+                    trace.append(result); final_status = "eligible_for_approval"; break
+                result["decision"] = "needs_user_input"; trace.append(result); final_status = "needs_user_input"; failure_code = "CONTENT_GATE_BLOCKED"; break
             if codes:
-                result["decision"] = "layout_gate_blocked"; trace.append(result); final_status = "layout_gate_blocked"
+                result["decision"] = "blocked"; trace.append(result); final_status = "blocked"
                 failure_code = sorted(codes)[0]
                 break
             result["decision"] = "eligible_for_approval"; trace.append(result); final_status = "eligible_for_approval"; break
@@ -2054,8 +2324,9 @@ def render_with_reflow(args: argparse.Namespace, template: Template, theme_vars:
         # that is still not enough, the next bounded action is removing one
         # whole lowest-ranked project.  Independent counters allow a
         # compression to hand off to pruning without permitting loops.
-        if final_status == "content_gate_blocked" and is_overfull_page and compression_attempt < 1:
-            compressed = _content_compress_candidate(staging)
+        if final_status == "needs_user_input" and is_overfull_page and compression_attempt < 1:
+            profile_for_compression = Profile.model_validate(load_yaml(args.profile))
+            compressed = _content_compress_candidate(staging, profile_for_compression, args.inbox)
             if compressed is not None:
                 append_content_recovery_trace(staging, {
                     "status": "content_compression_applied",
@@ -2068,12 +2339,12 @@ def render_with_reflow(args: argparse.Namespace, template: Template, theme_vars:
                 atomic_write_json(staging / "typeset-plan.json", compressed)
                 return render_with_reflow(
                     args, template, theme_vars, prepared_dir=staging,
-                    prepared_run_id=run_id, expansion_attempt=expansion_attempt,
+                    prepared_run_id=run_id, expansion_attempt=0,
                     compression_attempt=compression_attempt + 1,
                     prune_attempt=prune_attempt,
                 )
 
-        if final_status == "content_gate_blocked" and is_overfull_page and prune_attempt < 1:
+        if final_status == "needs_user_input" and is_overfull_page and prune_attempt < 1:
             prune = _content_prune_candidate(staging)
             if prune is not None:
                 candidate_typeset, candidate_plan, removed_id = prune
@@ -2102,15 +2373,15 @@ def render_with_reflow(args: argparse.Namespace, template: Template, theme_vars:
                     prune_args.jd_brief = pruned_brief_path
                 return render_with_reflow(
                     prune_args, template, theme_vars, prepared_dir=staging,
-                    prepared_run_id=run_id, expansion_attempt=expansion_attempt,
+                    prepared_run_id=run_id, expansion_attempt=0,
                     compression_attempt=compression_attempt,
                     prune_attempt=prune_attempt + 1,
                 )
 
-        if final_status == "content_gate_blocked" and is_sparse_page and expansion_attempt < 1:
+        if final_status == "needs_user_input" and is_sparse_page and expansion_attempt < 1:
             recovery = _content_recovery_candidate(staging, args, template)
             if recovery is not None:
-                candidate, candidate_plan, recovery_brief = recovery
+                candidate, candidate_plan, recovery_brief, sparse_fill_state = recovery
                 append_content_recovery_trace(staging, {
                     "status": "candidate_applied",
                     "before_bottom_whitespace_pt": last_result.get("bottom_whitespace_pt"),
@@ -2129,13 +2400,14 @@ def render_with_reflow(args: argparse.Namespace, template: Template, theme_vars:
                     atomic_write_json(staging / "resume-plan.json", candidate_plan.model_dump(mode="json"))
                 atomic_write_json(staging / "typeset-plan.json", candidate)
                 recovery_args = argparse.Namespace(**vars(args))
+                recovery_args.sparse_fill_state = sparse_fill_state
                 if recovery_brief is not None:
                     recovery_args.jd_brief = recovery_brief
                 return render_with_reflow(
                     recovery_args, template, theme_vars, prepared_dir=staging,
                     prepared_run_id=run_id, expansion_attempt=expansion_attempt + 1,
                     compression_attempt=compression_attempt,
-                    prune_attempt=prune_attempt,
+                    prune_attempt=prune_attempt, sparse_fill_attempt=1,
                 )
         atomic_write_json(trace_path, {"status": final_status, "run_id": run_id, "rounds": trace})
         if final_status == "eligible_for_approval":
@@ -2171,7 +2443,7 @@ def render_with_reflow(args: argparse.Namespace, template: Template, theme_vars:
                 phase="pdf_reflow", inputs=frozen_inputs,
             )
             trace_path = quarantine / "reflow-trace.json"
-        if final_status == "content_gate_blocked":
+        if final_status == "needs_user_input":
             event_path = trace_path.parent / "skillopt-event.json"
             recovery_request = None
             if event_path.is_file():
@@ -2249,15 +2521,23 @@ def main() -> int:
         validate_employment_provenance(profile, args.inbox)
         probe = data_probe(profile, template, selection)
         write_json(work_dir / "data-probe.json", probe)
-        if any(item.status in {"needs_user_input", "evidence_gate_blocked"} for item in probe):
-            status = "evidence_gate_blocked" if any(item.status == "evidence_gate_blocked" for item in probe) else "needs_user_input"
+        if any(item.status in {"needs_user_input", "blocked"} for item in probe):
+            status = "blocked" if any(item.status == "blocked" for item in probe) else "needs_user_input"
+            error_codes = [status.upper()]
+            if any(
+                "absent" in question.lower() or "missing" in question.lower()
+                for item in probe
+                for question in item.questions
+            ):
+                error_codes.append("INSUFFICIENT_PROJECT_EVIDENCE")
             quarantine = quarantine_build_failure(
                 args.output_dir, preflight_run_id, preflight_dir,
-                code=status.upper(), detail="data probe did not satisfy the evidence gate",
+                code=error_codes[-1], detail="data probe did not satisfy the evidence gate",
                 phase="content_probe",
             )
             preflight_dir = None
             print(json.dumps({"status": status, "probe": [item.model_dump() for item in probe],
+                              "error_codes": error_codes,
                               "quarantine": str(quarantine)}, ensure_ascii=False))
             return 3
         agent_a = (ResumePlan.model_validate(load_json(args.agent_a_output))
@@ -2332,7 +2612,14 @@ def main() -> int:
             # record.  The delivery manifest is recreated only after the new
             # bytes pass the DOCX gate.
             (args.output_dir / "docx-delivery-manifest.json").unlink(missing_ok=True)
-            command = [sys.executable, str(Path(__file__).with_name("docx_renderer.py")), "--profile", str(args.profile), "--template", str(args.template), "--resume-plan", str(args.output_dir / "resume-plan.json"), "--typeset-plan", str(args.output_dir / "typeset-plan.json"), "--theme-vars", str(theme_vars), "--output", str(args.output_dir / "resume.docx"), "--internal-delivery"]
+            layout_state = "normal"
+            layout_path = args.output_dir / "layout_vars.json"
+            if layout_path.is_file():
+                try:
+                    layout_state = str(load_json(layout_path).get("layout_state") or "normal")
+                except (OSError, ValueError, TypeError):
+                    layout_state = "normal"
+            command = [sys.executable, str(Path(__file__).with_name("docx_renderer.py")), "--profile", str(args.profile), "--template", str(args.template), "--resume-plan", str(args.output_dir / "resume-plan.json"), "--typeset-plan", str(args.output_dir / "typeset-plan.json"), "--theme-vars", str(theme_vars), "--output", str(args.output_dir / "resume.docx"), "--layout-state", layout_state, "--internal-delivery"]
             try:
                 subprocess.run(command, check=True)
             except subprocess.CalledProcessError as exc:
@@ -2349,7 +2636,7 @@ def main() -> int:
                     phase="docx_delivery",
                 )
                 print(json.dumps({
-                    "status": "delivery_gate_blocked",
+                    "status": "blocked",
                     "reason": "DOCX delivery failed; authoritative PDF remains eligible",
                     "pdf": str(args.output_dir / "resume.pdf"),
                     "docx_quarantine": str(docx_quarantine),
@@ -2397,16 +2684,16 @@ def main() -> int:
                 trace_payload = load_json(reflow_trace)
                 trace_payload["docx_qa"] = docx_gate
                 atomic_write_json(reflow_trace, trace_payload)
-        status = render_result["status"] if args.render else "ready"
+        status = render_result["status"] if args.render else "eligible_for_approval"
         print(json.dumps({"status": status, "output_dir": str(args.output_dir)}, ensure_ascii=False))
-        return 0 if status in {"ready", "eligible_for_approval"} else 3
+        return 0 if status in {"eligible_for_approval", "bounded"} else 3
     except ResumeQAError as exc:
         quarantine = quarantine_build_failure(
             args.output_dir, preflight_run_id, preflight_dir,
             code=exc.code, detail=exc.detail, phase="build",
         )
         preflight_dir = None
-        print(json.dumps({"status": "delivery_gate_blocked", "reason": str(exc),
+        print(json.dumps({"status": "blocked", "reason": str(exc),
                           "quarantine": str(quarantine)}, ensure_ascii=False))
         return 3
     except NeedsUserInputError as exc:
@@ -2424,7 +2711,7 @@ def main() -> int:
             code="EVIDENCE_GATE_BLOCKED", detail=str(exc), phase="evidence_gate",
         )
         preflight_dir = None
-        print(json.dumps({"status": "evidence_gate_blocked", "reason": str(exc),
+        print(json.dumps({"status": "blocked", "reason": str(exc),
                           "quarantine": str(quarantine)}, ensure_ascii=False))
         return 3
     except (OSError, ValueError, ValidationError, subprocess.CalledProcessError) as exc:

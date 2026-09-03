@@ -1,0 +1,24 @@
+name: Private benchmark
+
+on:
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    name: Authorized 50-fixture benchmark
+    # The runner must be private, have the reviewed fixture root mounted, and
+    # carry the licensed production font. No benchmark files are uploaded.
+    runs-on: [self-hosted, resume-private]
+    env:
+      RESUME_PRIVATE_BENCHMARK_ROOT: ${{ vars.RESUME_PRIVATE_BENCHMARK_ROOT }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r scripts/requirements.txt
+      - run: test -n "$RESUME_PRIVATE_BENCHMARK_ROOT"
+      - run: test -d "$RESUME_PRIVATE_BENCHMARK_ROOT"
+      - run: python scripts/environment_doctor.py --require-docx --json
+      - run: python scripts/validate_private_benchmark.py --fixture-root "$RESUME_PRIVATE_BENCHMARK_ROOT"
+      - run: python scripts/run_private_benchmark.py --fixture-root "$RESUME_PRIVATE_BENCHMARK_ROOT" --output-dir "$RUNNER_TEMP/resume-private-benchmark" --fail-on-mismatch

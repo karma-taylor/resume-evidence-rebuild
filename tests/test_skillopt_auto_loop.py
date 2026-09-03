@@ -63,7 +63,7 @@ def test_docx_delivery_failure_enters_public_rule_lane(tmp_path: Path):
     assert event["auto_skillopt"]["entered"] is True
     assert event["auto_skillopt"]["eligible"] is True
     assert event["auto_skillopt"]["route"] == "public_rule_candidate"
-    assert event["gate"] == "delivery_gate_blocked"
+    assert event["gate"] == "blocked"
 
 
 def test_content_failure_creates_recovery_request_and_cooldown(tmp_path: Path):

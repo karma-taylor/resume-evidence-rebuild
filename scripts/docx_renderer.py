@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -25,7 +26,7 @@ from validate_resume_artifacts import (
 )
 
 
-DOCX_CJK_FONT = "Microsoft YaHei"
+DOCX_CJK_FONT = os.environ.get("RESUME_CJK_FONT", "Microsoft YaHei")
 CONTENT_BOUNDS = {
     "normal": (40, 50),
     "compressed": (30, 40),
@@ -33,21 +34,38 @@ CONTENT_BOUNDS = {
 }
 BODY_LINE_SPACING = 1.4
 BULLET_LINE_SPACING = 1.3
+BODY_LINE_SPACING_PT = 14.0
+BULLET_LINE_SPACING_PT = 13.0
 COMPACT_PARAGRAPH_AFTER_PT = 0.5
-BULLET_PARAGRAPH_AFTER_PT = 5.0
+BULLET_PARAGRAPH_AFTER_PT = 2.0
 
 
 def set_compact_paragraph(paragraph: Any, *, after_pt: float = COMPACT_PARAGRAPH_AFTER_PT) -> None:
     """Apply the fixed 1.4x body rhythm; reflow never changes it."""
-    paragraph.paragraph_format.line_spacing = BODY_LINE_SPACING
+    paragraph.paragraph_format.line_spacing = Pt(BODY_LINE_SPACING_PT)
     paragraph.paragraph_format.space_after = Pt(after_pt)
     paragraph.paragraph_format.space_before = Pt(0)
+    # python-docx's default template carries an 18pt East-Asian document
+    # grid. LibreOffice otherwise snaps 10pt CJK text to that grid and turns
+    # the required 1.3/1.4 auto spacing into roughly 21–22pt baselines. Keep
+    # the contract's w:line values while explicitly disabling grid snapping.
+    p_pr = paragraph._p.get_or_add_pPr()
+    snap = p_pr.find(qn("w:snapToGrid"))
+    if snap is None:
+        snap = OxmlElement("w:snapToGrid")
+        p_pr.append(snap)
+    snap.set(qn("w:val"), "0")
 
 
 def set_bullet_paragraph(paragraph: Any, *, after_pt: float = BULLET_PARAGRAPH_AFTER_PT) -> None:
     """Apply 1.3x wrapped-line spacing plus a 5pt inter-bullet gap."""
     set_compact_paragraph(paragraph, after_pt=after_pt)
-    paragraph.paragraph_format.line_spacing = BULLET_LINE_SPACING
+    paragraph.paragraph_format.line_spacing = Pt(BULLET_LINE_SPACING_PT)
+    # Keep the editable derivative's hanging indent aligned with Typst's
+    # 10pt bullet body instead of inheriting LibreOffice's wider List Bullet
+    # default, which can add an avoidable line to long CJK bullets.
+    paragraph.paragraph_format.left_indent = Pt(10)
+    paragraph.paragraph_format.first_line_indent = Pt(-10)
 
 
 def set_run_font(run: Any, size: float | None = None) -> None:
@@ -66,9 +84,12 @@ def set_run_color(run: Any, hex_value: str) -> None:
     run.font.color.rgb = color(hex_value)
 
 
-def add_section_heading(doc: Document, label: str, accent: str, ink: str) -> None:
+def add_section_heading(
+    doc: Document, label: str, accent: str, ink: str, *, before_pt: float = 0,
+) -> None:
     paragraph = doc.add_paragraph()
     set_compact_paragraph(paragraph, after_pt=0)
+    paragraph.paragraph_format.space_before = Pt(before_pt)
     marker = paragraph.add_run("▌ ")
     marker.bold = True
     set_run_font(marker, 12)
@@ -77,6 +98,15 @@ def add_section_heading(doc: Document, label: str, accent: str, ink: str) -> Non
     title.bold = True
     set_run_font(title, 12)
     set_run_color(title, ink)
+    p_pr = paragraph._p.get_or_add_pPr()
+    borders = OxmlElement("w:pBdr")
+    bottom = OxmlElement("w:bottom")
+    bottom.set(qn("w:val"), "single")
+    bottom.set(qn("w:sz"), "4")
+    bottom.set(qn("w:space"), "0")
+    bottom.set(qn("w:color"), accent.removeprefix("#"))
+    borders.append(bottom)
+    p_pr.append(borders)
 
 
 def add_title_date(
@@ -105,6 +135,9 @@ def add_project_rule(doc: Document, accent: str) -> Any:
     # Keep a visible title-to-body breathing space while leaving all textual
     # body paragraphs on the fixed 1.4x/0.5pt contract.
     set_compact_paragraph(paragraph, after_pt=3)
+    # The paragraph exists only to carry a border; a full 14pt empty line
+    # would add invisible vertical padding once per project.
+    paragraph.paragraph_format.line_spacing = Pt(1)
     paragraph.paragraph_format.right_indent = Cm(14.5)
     p_pr = paragraph._p.get_or_add_pPr()
     borders = OxmlElement("w:pBdr")
@@ -122,6 +155,7 @@ def add_header_rule(doc: Document, accent: str) -> Any:
     """Add the full-width rule below the compact two-column identity row."""
     paragraph = doc.add_paragraph()
     set_compact_paragraph(paragraph, after_pt=0)
+    paragraph.paragraph_format.line_spacing = Pt(1)
     p_pr = paragraph._p.get_or_add_pPr()
     borders = OxmlElement("w:pBdr")
     bottom = OxmlElement("w:bottom")
@@ -240,6 +274,7 @@ def _main_impl() -> int:
     parser.add_argument("--typeset-plan", type=Path, required=True)
     parser.add_argument("--theme-vars", "--design-tokens", dest="theme_vars", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--layout-state", choices=("normal", "compact_1", "compact_2", "compact_3", "compact_4", "sparse_fill", "sparse_fill_compact", "sparse_fill_tight"), default="normal", help=argparse.SUPPRESS)
     parser.add_argument("--internal-delivery", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
     profile, template, plan, typeset = map(load, (args.profile, args.template, args.resume_plan, args.typeset_plan))
@@ -253,14 +288,34 @@ def _main_impl() -> int:
     tokens = theme["tokens"]
     palette, hierarchy = tokens["palette"], tokens["hierarchy"]
     doc = Document()
+    list_style_ppr = doc.styles["List Bullet"].element.get_or_add_pPr()
+    contextual_spacing = list_style_ppr.find(qn("w:contextualSpacing"))
+    if contextual_spacing is not None:
+        list_style_ppr.remove(contextual_spacing)
     section = doc.sections[0]
     section.page_width, section.page_height = Cm(21), Cm(29.7)
-    section.top_margin = section.bottom_margin = section.left_margin = section.right_margin = Cm(1.7)
+    # The stock Word template includes a legacy East-Asian baseline grid.
+    # LibreOffice applies it even when individual paragraphs opt out, so
+    # remove the grid at section level and let the explicit 1.3/1.4 auto line
+    # spacing control physical layout.
+    doc_grid = section._sectPr.find(qn("w:docGrid"))
+    if doc_grid is not None:
+        section._sectPr.remove(doc_grid)
+    # Match Typst's authoritative A4 content surface exactly.
+    # LibreOffice places Microsoft YaHei's top glyph box slightly above the
+    # nominal paragraph origin. A 1.42cm top margin keeps the measured ink
+    # boundary at or beyond the 1.27cm physical QA minimum.
+    section.top_margin = Cm(1.42)
+    section.bottom_margin = Cm(1.27)
+    # The editable derivative may use the full permitted A4 text surface.
+    # This keeps long CJK stage bullets on the same one-page envelope as the
+    # authoritative Typst output without reducing the 10pt body font.
+    section.left_margin = section.right_margin = Cm(1.27)
     normal = doc.styles["Normal"]
     normal.font.name, normal.font.size = DOCX_CJK_FONT, Pt(10)
     normal._element.rPr.rFonts.set(qn("w:eastAsia"), DOCX_CJK_FONT)
     normal.font.color.rgb = color("#000000")
-    normal.paragraph_format.line_spacing = BODY_LINE_SPACING
+    normal.paragraph_format.line_spacing = Pt(BODY_LINE_SPACING_PT)
     normal.paragraph_format.space_after = Pt(COMPACT_PARAGRAPH_AFTER_PT)
     identity = profile["identity"]
     market = str(template.get("market", identity.get("market", ""))).upper()
@@ -302,7 +357,7 @@ def _main_impl() -> int:
             continue
         contact = left_cell.add_paragraph(); set_compact_paragraph(contact, after_pt=1 if line_index == 0 else 0)
         run = contact.add_run(line); set_run_font(run, 10); set_run_color(run, "#000000")
-    if market == "CN":
+    if market == "CN" and str(identity.get("photo_path") or "").strip():
         photo_path = str(identity.get("photo_path", "")).strip()
         photo = Path(photo_path).expanduser()
         if not photo_path or not photo.is_file():
@@ -312,9 +367,17 @@ def _main_impl() -> int:
         photo_paragraph.paragraph_format.right_indent = Pt(8)
         photo_paragraph.add_run().add_picture(str(photo), width=Cm(2.30), height=Cm(3.07))
     add_header_rule(doc, palette["accent"])
+    header_gap = {
+        "normal": 12.0, "compact_1": 10.0, "compact_2": 8.0, "compact_3": 6.0, "compact_4": 4.0,
+        "sparse_fill": 16.0, "sparse_fill_compact": 16.0,
+        "sparse_fill_tight": 8.0,
+    }[args.layout_state]
     technical_skills = str(template.get("technical_skills") or template.get("summary", "")).strip()
     if technical_skills:
-        add_section_heading(doc, labels[0], palette["accent"], palette["accent"])
+        add_section_heading(
+            doc, labels[0], palette["accent"], palette["accent"],
+            before_pt=header_gap,
+        )
         skills_para = doc.add_paragraph()
         set_compact_paragraph(skills_para)
         add_rich(skills_para, technical_skills, [str(item) for item in template.get("summary_bold_phrases", [])], size=10)
@@ -336,7 +399,12 @@ def _main_impl() -> int:
             ink=palette["accent"], date_color=hierarchy["date_color"], title_size=11,
         )
         details = typeset_employment[employment_id].get("bullets", [])
-        work_min_chars, work_max_chars = CONTENT_BOUNDS["normal"]
+        if content_mode == "compressed":
+            work_min_chars, work_max_chars = CONTENT_BOUNDS["compressed"]
+        elif content_mode == "expanded":
+            work_min_chars, work_max_chars = 40, CONTENT_BOUNDS["expanded"][1]
+        else:
+            work_min_chars, work_max_chars = CONTENT_BOUNDS["normal"]
         if (not isinstance(details, list) or not 4 <= len(details) <= 5
                 or any(not isinstance(detail, dict) or not work_min_chars <= cjk_count(str(detail.get("text", ""))) <= work_max_chars for detail in details)):
             raise ValueError(f"each employment entry must contain 4-5 validated {work_min_chars}-{work_max_chars} CJK business bullets")
@@ -349,8 +417,8 @@ def _main_impl() -> int:
             "id": employment_id,
             "name": f"{item.get('employer', '')} | {item.get('title', '')}",
             "bullets": [
-                {"text": str(detail["text"]), "source_text": detail["text"], "bold_phrases": detail["bold_phrases_used"], "source_ingestion_ids": detail["source_ingestion_ids"], "derived_metric": (((detail.get("business_structure") or {}).get("quantified_result") or {}).get("derived_metric"))}
-                for detail in details
+                {"element_id": f"{employment_id}.bullet.{number}", "text": str(detail["text"]), "source_text": detail["text"], "bold_phrases": detail["bold_phrases_used"], "source_ingestion_ids": detail["source_ingestion_ids"], "derived_metric": (((detail.get("business_structure") or {}).get("quantified_result") or {}).get("derived_metric"))}
+                for number, detail in enumerate(details, 1)
             ],
         })
     projects = {item["id"]: item for item in plan["projects"]}
@@ -387,11 +455,13 @@ def _main_impl() -> int:
     add_section_heading(doc, labels[3], palette["accent"], palette["accent"])
     education = doc.add_paragraph(" · ".join(f"{entry.get('school', '')} {entry.get('degree', '')} {entry.get('start', '')}–{entry.get('end', '')}".strip() for entry in profile.get("education", [])))
     set_compact_paragraph(education)
-    certs = doc.add_paragraph()
-    set_compact_paragraph(certs)
-    for index, cert in enumerate(profile.get("certifications", [])):
-        if index: certs.add_run(" · ")
-        run = certs.add_run(cert); run.bold = True
+    certifications = list(profile.get("certifications", []))
+    if certifications:
+        certs = doc.add_paragraph()
+        set_compact_paragraph(certs)
+        for index, cert in enumerate(certifications):
+            if index: certs.add_run(" · ")
+            run = certs.add_run(cert); run.bold = True
     # Paragraph styles are not consistently inherited by LibreOffice for CJK
     # glyphs.  Stamp the selected CJK font onto every generated body run.
     for paragraph in doc.paragraphs:
@@ -411,6 +481,7 @@ def _main_impl() -> int:
         "projects": manifest,
         "employment": employment_manifest,
         "content_mode": content_mode,
+        "layout_state": args.layout_state,
         "theme_variant": theme["variant_id"],
         "provenance": {
             "renderer": "canonical_docx_renderer",
@@ -438,7 +509,7 @@ def _main_impl() -> int:
             args.output.parent, (args.output, manifest_path),
             code=exc.code, detail=exc.detail, phase="docx_delivery",
         )
-        print(json.dumps({"status": "delivery_gate_blocked", "error": str(exc), "quarantine": str(quarantine)}, ensure_ascii=False))
+        print(json.dumps({"status": "blocked", "error": str(exc), "quarantine": str(quarantine)}, ensure_ascii=False))
         return 3
     print(json.dumps({"status": "eligible_for_approval", "docx": str(args.output),
                       "project_manifest": str(manifest_path), "qa": qa}, ensure_ascii=False))

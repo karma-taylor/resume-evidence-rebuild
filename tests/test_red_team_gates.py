@@ -38,6 +38,10 @@ from validate_resume_artifacts import (  # noqa: E402
 )
 
 
+def test_typst_escape_preserves_literal_double_hyphen():
+    assert typst_renderer.esc("匿名项目--") == "匿名项目\\-\\-"
+
+
 def test_plan_only_failure_still_enters_skillopt_quarantine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("SKILLOPT_AUTO_ENABLED", "0")
     quarantine = quarantine_build_failure(
@@ -205,7 +209,7 @@ def test_docx_ooxml_spacing_rejects_single_spacing(tmp_path):
         check_docx_ooxml_spacing(path)
 
 
-def test_docx_ooxml_spacing_accepts_exact_14x_contract(tmp_path):
+def test_docx_ooxml_spacing_accepts_exact_physical_contract(tmp_path):
     path = tmp_path / "compact.docx"
     doc = Document()
     for text in ("姓名", "目标职位", "电话：123 | 邮箱：x@y.com", "地点：深圳 | 作品集：https://x.com"):
@@ -215,7 +219,7 @@ def test_docx_ooxml_spacing_accepts_exact_14x_contract(tmp_path):
     set_compact_paragraph(paragraph)
     doc.save(path)
     result = check_docx_ooxml_spacing(path)
-    assert result["actual_line_values"] == [336]
+    assert result["actual_line_values"] == [280]
     assert result["actual_after_values"] == [10]
 
 
@@ -444,7 +448,7 @@ def test_docx_body_uses_fixed_one_point_four_line_spacing(tmp_path: Path):
     rendered = Document(path).paragraphs[0]
     assert BODY_LINE_SPACING == 1.4
     assert BULLET_LINE_SPACING == 1.3
-    assert BULLET_PARAGRAPH_AFTER_PT == 5.0
+    assert BULLET_PARAGRAPH_AFTER_PT == 2.0
     assert paragraph_spacing_is_compact(rendered)
 
 

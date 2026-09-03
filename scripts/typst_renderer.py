@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -23,6 +24,11 @@ FROZEN_LAYOUTS = {
     "normal": {"header_to_first_module": 10.0, "module_gap": 7.0, "project_gap": 8.0, "title_to_overview": 4.0, "overview_to_bullet": 3.0},
     "compact_1": {"header_to_first_module": 8.0, "module_gap": 5.0, "project_gap": 6.0, "title_to_overview": 3.0, "overview_to_bullet": 2.0},
     "compact_2": {"header_to_first_module": 6.0, "module_gap": 4.0, "project_gap": 5.0, "title_to_overview": 2.0, "overview_to_bullet": 1.0},
+    "sparse_fill": {"header_to_first_module": 14.0, "module_gap": 25.0, "project_gap": 40.0, "title_to_overview": 4.0, "overview_to_bullet": 3.0},
+    "sparse_fill_compact": {"header_to_first_module": 14.0, "module_gap": 15.0, "project_gap": 12.0, "title_to_overview": 4.0, "overview_to_bullet": 3.0},
+    "sparse_fill_tight": {"header_to_first_module": 6.0, "module_gap": 4.0, "project_gap": 5.0, "title_to_overview": 2.0, "overview_to_bullet": 1.0},
+    "compact_3": {"header_to_first_module": 4.0, "module_gap": 2.0, "project_gap": 2.0, "title_to_overview": 1.0, "overview_to_bullet": 0.5},
+    "compact_4": {"header_to_first_module": 2.0, "module_gap": 0.0, "project_gap": 0.0, "title_to_overview": 0.0, "overview_to_bullet": 0.0},
 }
 CONTENT_BOUNDS = {
     "normal": (40, 50),
@@ -41,7 +47,8 @@ def load(path: Path) -> dict[str, Any]:
 
 def esc(value: str) -> str:
     return (value.replace("\\", "\\\\").replace("#", "\\#")
-            .replace("@", "\\@").replace("[", "\\[").replace("]", "\\]"))
+            .replace("@", "\\@").replace("[", "\\[").replace("]", "\\]")
+            .replace("-", "\\-"))
 
 
 def rich_text(text: str, phrases: list[str]) -> str:
@@ -148,6 +155,7 @@ def _main_impl() -> int:
     parser.add_argument("--theme-vars", "--design-tokens", dest="theme_vars", type=Path, required=True, help="Frozen allow-listed theme_vars.json")
     parser.add_argument("--internal-reflow", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    cjk_font = os.environ.get("RESUME_CJK_FONT", "Microsoft YaHei")
     # The renderer is also a public entry point.  It therefore cannot trust
     # caller-provided JSON just because build_resume.py usually produced it.
     # Admission happens before a single string is copied into Typst.
@@ -159,6 +167,7 @@ def _main_impl() -> int:
         inbox_path=args.inbox,
         jd_brief_path=args.jd_brief,
         jd_evidence_map_path=args.jd_evidence_map,
+        allow_recovery_subset=args.internal_reflow,
     )
     # Render from the validated in-memory values, rather than re-reading four
     # attacker-controlled files after validation (a TOCTOU bypass).
@@ -253,7 +262,12 @@ def _main_impl() -> int:
         work_bullets = typeset_employment[employment_id].get("bullets", [])
         if not isinstance(work_bullets, list) or not 4 <= len(work_bullets) <= 5:
             raise ValueError("each employment entry must contain 4-5 validated business bullets")
-        work_min_chars, work_max_chars = CONTENT_BOUNDS["normal"]
+        if content_mode == "compressed":
+            work_min_chars, work_max_chars = CONTENT_BOUNDS["compressed"]
+        elif content_mode == "expanded":
+            work_min_chars, work_max_chars = 40, CONTENT_BOUNDS["expanded"][1]
+        else:
+            work_min_chars, work_max_chars = CONTENT_BOUNDS["normal"]
         if (any(not isinstance(detail, dict) for detail in work_bullets)
                 or any(not work_min_chars <= cjk_count(str(detail.get("text", ""))) <= work_max_chars for detail in work_bullets)):
             raise ValueError(f"each employment bullet must contain {work_min_chars}-{work_max_chars} CJK characters")
@@ -328,10 +342,9 @@ def _main_impl() -> int:
             + "]\n"
         )
     market = str(template.get("market", identity.get("market", ""))).upper()
-    photo_path = str(identity.get("photo_path", "")).strip()
-    if market == "CN":
-        if not photo_path:
-            raise ValueError("CN resume requires identity.photo_path")
+    raw_photo_path = identity.get("photo_path")
+    photo_path = raw_photo_path.strip() if isinstance(raw_photo_path, str) else ""
+    if market == "CN" and photo_path:
         photo = Path(photo_path).expanduser()
         if not photo.is_absolute():
             photo = args.profile.parent / photo
@@ -352,7 +365,7 @@ def _main_impl() -> int:
 #let design-len(key) = design.at("tokens").at("lines").at(key) * 1pt
 #let design-color(key) = rgb(if key == "date_color" or key == "overview_color" { design.at("tokens").at("hierarchy").at(key) } else { design.at("tokens").at("palette").at(key) })
 #set page(paper: \"a4\", margin: (top: 1.27cm, bottom: 1.27cm, left: 1.7cm, right: 1.7cm))
-#set text(font: \"Microsoft YaHei\", size: 10pt, fill: rgb("#000000"))
+#set text(font: """ + json.dumps(cjk_font, ensure_ascii=False) + """, size: 10pt, fill: rgb("#000000"))
 #set text(top-edge: 0.8em, bottom-edge: -0.2em)
 #set par(leading: 0.4em, spacing: 0.5pt)
 #let bullet(body) = {
@@ -376,7 +389,6 @@ def _main_impl() -> int:
 #v(layout-len("module_gap"))
 """ + section_heading(labels[3]) + """
 #text(size: 10pt)[""" + esc(education) + """ ]
-#v(3pt)
 """ + rich_text(certs, []) + """
 ]
 """

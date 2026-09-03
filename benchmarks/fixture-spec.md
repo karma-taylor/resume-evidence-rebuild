@@ -19,7 +19,20 @@ fixture-01/
 └── expected.json        # 预期路由、通过/阻断结果和哨兵断言
 ```
 
-`manifest.json` 必须包含 `fixture_id`、`origin: "human_redacted"`、`authorized: true`、`coverage`、`sources`、`sentinels`、`redaction_method`、`created_at` 以及所有材料文件的哈希。`sources` 只能泛化标识授权来源，不得暴露个人、雇主、客户、URL、凭据或原始文件名。
+`manifest.json` 必须包含 `fixture_id`、`origin: "human_redacted"`、`authorized: true`、`coverage`、`sources`、`sentinels`、`redaction_method`、`created_at` 以及所有材料文件的哈希。`sources` 只能泛化标识授权来源，不得暴露个人、雇主、客户、URL、凭据或原始文件名。字段约束见 `schemas/benchmark-manifest.schema.json`。
+
+`expected.json` 是冻结对比契约，字段约束见 `schemas/benchmark-expected.schema.json`。必须记录：
+
+- `route`：兼容输入可使用 `ready` / `evidence_gate_blocked`；新报告统一输出 `eligible_for_approval` / `bounded` / `needs_user_input` / `blocked`
+- `generate_pdf` / `generate_docx`
+- `page_count`：通过样本为 `1`，证据不足样本为 `0`
+- `error_codes`
+- `sentinels`
+- `project_count`
+- `photo_forbidden`
+- `reject_unsupported_jd_claims`
+
+海外样本必须 `photo_forbidden: true`；无指标样本必须 `route: "bounded"`；缺证据样本必须 `route: "needs_user_input"` 且包含 `NEEDS_USER_INPUT` 或 `INSUFFICIENT_PROJECT_EVIDENCE`；对抗性 JD 样本必须 `reject_unsupported_jd_claims: true`。时间与联系方式完整性样本应额外给出 `immutable_identity`。
 
 ## 脱敏标准
 
@@ -48,7 +61,14 @@ fixture-01/
 启用自动 SkillOpt PR 前，运行：
 
 ```bash
-python3 scripts/validate_private_benchmark.py --fixture-root benchmarks/private
+python3 scripts/validate_private_benchmark.py \
+  --fixture-root /private/path/benchmarks/private
+python3 scripts/run_private_benchmark.py \
+  --fixture-root /private/path/benchmarks/private \
+  --output-dir /private/path/benchmark-results \
+  --fail-on-mismatch
 ```
+
+如需测试校验器和版式脚手架，可单独运行 `scripts/populate_private_benchmark.py`；其输出是合成数据，不能作为正式 50 份基准或 SkillOpt 晋级依据。
 
 校验器只接受恰好 50 份具备覆盖、来源和哨兵的授权 `human_redacted` 样本。真实任务发现新的失败族时，须先取得授权，再新增脱敏样本并去重覆盖标签。每次 SkillOpt 对比冻结 manifest 哈希；变更样本后不得复用旧的候选/基线分数。

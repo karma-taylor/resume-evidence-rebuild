@@ -21,6 +21,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from route_contract import metric_tokens_for_text, result_kinds_for_text
+
 
 OPTIMIZABLE_CODES = frozenset({
     "PARAGRAPH_SPACING_ERROR", "PAGE_SIZE_ERROR", "MARGIN_OUT_OF_RANGE_ERROR",
@@ -93,6 +95,27 @@ def technical_terms(text: str) -> list[str]:
     return terms
 
 
+def technical_term_positions(text: str) -> list[tuple[str, int, int]]:
+    return [(match.group(0), match.start(), match.end()) for match in TECHNICAL_TERM_RE.finditer(text)]
+
+
+def technical_safe_segments(text: str) -> list[str]:
+    """Return contiguous source slices with technical spans removed."""
+    positions = technical_term_positions(text)
+    if not positions:
+        return [text]
+    boundaries = [0]
+    for _, start, end in positions:
+        boundaries.extend((start, end))
+    boundaries.append(len(text))
+    segments: list[str] = []
+    for left, right in zip(boundaries[::2], boundaries[1::2]):
+        fragment = text[left:right].strip("，。；、 ")
+        if fragment:
+            segments.append(fragment)
+    return segments
+
+
 def take_cjk_prefix(text: str, limit: int) -> str:
     """Take a verbatim prefix without exceeding the CJK budget."""
     if limit <= 0:
@@ -134,12 +157,10 @@ def compose_stage(
     # Use the upper edge of the selected frozen budget.  Recovery exists to
     # correct page density, so leaving a candidate at the midpoint would
     # preserve the original sparse/overfull failure unnecessarily.
-    # The expanded contract allows up to 130 CJK characters, but the
-    # automatic recovery fallback deliberately aims for 120.  This gives a
-    # sparse page enough substance to clear the density gate while staying
-    # below the hard ceiling; callers may still submit an explicitly authored
-    # 50–130 candidate for validation.
-    target = min(max_chars, 120) if max_chars > 50 else max_chars
+    # The expanded contract allows up to 130 CJK characters. The first sparse
+    # recovery uses a moderate target; a later recovery may add only one more
+    # bounded increment. Explicitly authored 50–130 candidates remain valid.
+    target = max_chars
     fragments: list[tuple[str, str]] = []
     if result:
         metrics = [c for c in selected if c.get("kind") == "metric"]
@@ -149,20 +170,71 @@ def compose_stage(
         # from an architecture Claim into the result prefix, otherwise the
         # evidence gate quite correctly rejects the candidate as a mixed-kind
         # metric assertion.
-        other = [
-            c for c in claims
-            if c.get("kind") != "metric" and c.get("text")
-            and not NUMBER_RE.search(str(c.get("text", "")))
-        ]
-        # Keep the final metric Claim at the end so the terminal bold phrase
-        # remains an auditable result, even when it is short.
-        terminal = metrics[-1] if metrics else None
+        # Keep the final result Claim at the end. A metric Claim is preferred;
+        # when no metric exists, an authorized delivery/control/architecture
+        # Claim is a valid bounded terminal conclusion.
+        if metrics:
+            terminal = metrics[-1]
+        else:
+            non_numeric = [
+                c for c in selected
+                if not metric_tokens_for_text(str(c.get("text", "")), numeric_re=NUMBER_RE)
+                and not any(term in str(c.get("text", "")) for term in ("提升", "降低"))
+            ]
+            # Prefer a control conclusion because delivery Claims may contain
+            # technical vocabulary such as "架构", which is forbidden in the
+            # project result stage.
+            priority = {"control": 0, "delivery": 1, "architecture": 2}
+            terminal = min(
+                non_numeric,
+                key=lambda c: (priority.get(str(c.get("kind")), 9), -cjk_count(str(c.get("text", "")))),
+            ) if non_numeric else None
         if terminal is None:
             return None
+        other: list[dict[str, Any]] = []
+        for claim in claims:
+            if claim.get("kind") == "metric" or not claim.get("text") or claim.get("id") == terminal.get("id"):
+                continue
+            claim_text = str(claim["text"])
+            if metric_tokens_for_text(claim_text, numeric_re=NUMBER_RE):
+                continue
+            # Result bullets cannot expose technical terms. Preserve a
+            # verbatim prefix before the first such term so an otherwise
+            # valid action/delivery Claim can still provide bounded length.
+            positions = technical_term_positions(claim_text)
+            safe_text = claim_text[:positions[0][1]].rstrip("，。；、 ") if positions else claim_text
+            if cjk_count(safe_text) >= 8:
+                other.append({**claim, "text": safe_text})
         # Prefer one complete delivery/control statement before the metric.
         # Concatenating several unrelated prefixes creates semantically odd
         # text and can also make PDF glyph-order verification ambiguous.
         terminal_text = str(terminal["text"])
+        positions = technical_term_positions(terminal_text)
+        if terminal.get("kind") == "metric":
+            # A metric Claim may contain a trailing architecture clause. Keep
+            # the metric-bearing prefix as the result and leave technical
+            # vocabulary to the solution stage.
+            suffix = terminal_text[positions[-1][2]:].strip("，。；、 ") if positions else ""
+            suffix_selected = bool(suffix and metric_tokens_for_text(suffix, numeric_re=NUMBER_RE) and not technical_terms(suffix))
+            if suffix_selected:
+                terminal_text = suffix
+            if not suffix_selected:
+                safe_metric_segments = [
+                    segment for segment in technical_safe_segments(terminal_text)
+                    if metric_tokens_for_text(segment, numeric_re=NUMBER_RE)
+                ]
+                if safe_metric_segments:
+                    terminal_text = max(safe_metric_segments, key=cjk_count)
+                else:
+                    for match in positions:
+                        prefix = terminal_text[:match[1]].rstrip("，。；、 ")
+                        if prefix and metric_tokens_for_text(prefix, numeric_re=NUMBER_RE):
+                            terminal_text = prefix
+                            break
+        elif positions:
+            # Qualitative terminal conclusions must also keep technical terms
+            # in the solution stage; retain a source-verbatim prefix instead.
+            terminal_text = terminal_text[:positions[0][1]].rstrip("，。；、 ")
         terminal_count = cjk_count(terminal_text)
         if terminal_count > max_chars:
             # Compression may shorten a long metric Claim, but only by taking
@@ -171,7 +243,7 @@ def compose_stage(
             # ("...准确率97.5%") while never inventing a new result phrase.
             terminal_text = take_cjk_suffix(terminal_text, max_chars)
             terminal_count = cjk_count(terminal_text)
-            if not NUMBER_RE.search(terminal_text):
+            if terminal.get("kind") == "metric" and not metric_tokens_for_text(terminal_text, numeric_re=NUMBER_RE):
                 return None
         wanted_prefix = target - terminal_count
         sorted_other = sorted(other, key=lambda c: (0 if c.get("kind") == "delivery" else 1, -cjk_count(str(c.get("text", "")))))
@@ -185,7 +257,7 @@ def compose_stage(
             # Do not treat a tiny 11–20-character context as the whole
             # pre-result clause.  It is safe as an additional fragment when
             # combined with other complete, source-backed clauses.
-            if not fragments and claim_count < max(min_chars - 10, 30):
+            if not fragments and claim_count < max(min_chars - 20, 20):
                 continue
             if remaining > 0:
                 fragment = take_cjk_prefix(claim_text, remaining)
@@ -208,23 +280,42 @@ def compose_stage(
         # paired with a non-numeric implementation fragment while retaining a
         # required context Claim.  This makes the fallback useful without
         # inventing connective wording.
-        if kinds == {"context"} and cjk_count("".join(str(c["text"]) for c in selected)) < min_chars:
+        safe_context_count = sum(
+            cjk_count(
+                str(c["text"])[:technical_term_positions(str(c["text"]))[0][1]].rstrip("，。；、 ")
+                if technical_term_positions(str(c["text"])) else str(c["text"])
+            )
+            for c in selected
+        )
+        if kinds == {"context"} and safe_context_count < min_chars:
             selected = selected + [c for c in claims if c not in selected and c.get("text")]
         # Use a complete Claim whenever it already satisfies the hard gate.
         # This is both more readable and safer than cutting a sentence in the
         # middle merely to hit an arbitrary character target.
-        complete = [c for c in selected if min_chars <= cjk_count(str(c["text"])) <= max_chars]
         if kinds == {"context"}:
             # A background must actually begin with the business context; a
             # complete delivery/control Claim is not an acceptable substitute
-            # merely because it happens to have the right length.
-            context_complete = [c for c in complete if c.get("kind") == "context"]
-            complete = context_complete
+            # merely because it happens to have the right length.  Context
+            # Claims occasionally end with a technical review noun; those
+            # Claims must take the safe prefix path below so the noun remains
+            # in the solution stage.
+            complete = [
+                c for c in selected
+                if min_chars <= cjk_count(str(c["text"])) <= max_chars
+                if c.get("kind") == "context" and not technical_terms(str(c["text"]))
+            ]
+            if any(technical_terms(str(c["text"])) for c in selected if c.get("kind") == "context"):
+                complete = []
+        else:
+            complete = [c for c in selected if min_chars <= cjk_count(str(c["text"])) <= max_chars]
         if complete:
             if kinds == {"context"}:
                 kind_priority = {"context": 0, "architecture": 1, "control": 2, "delivery": 3}
             else:
-                kind_priority = {"architecture": 0, "control": 0, "delivery": 1, "context": 2}
+                # Control/delivery Claims are usually already business-safe;
+                # prefer them when an architecture Claim would exceed the
+                # frozen two-term solution density cap.
+                kind_priority = {"control": 0, "delivery": 1, "architecture": 2, "context": 3}
             claim = min(complete, key=lambda c: (
                 kind_priority.get(str(c.get("kind")), 9),
                 abs(cjk_count(str(c["text"])) - target),
@@ -234,10 +325,41 @@ def compose_stage(
             # Context should lead with the business situation; solution should
             # lead with an implementation/control Claim.  Only then do we
             # take a short verbatim prefix from a second Claim to reach 40–50.
-            ordered = sorted(selected, key=lambda c: (0 if (kinds == {"context"} and c.get("kind") == "context") else 1, -cjk_count(str(c.get("text", "")))))
+            non_context_priority = {"control": 0, "delivery": 1, "architecture": 2}
+            ordered = sorted(
+                selected,
+                key=lambda c: (
+                    -1 if (kinds == {"context"} and c.get("kind") == "context") else non_context_priority.get(str(c.get("kind")), 3),
+                    -cjk_count(str(c.get("text", ""))),
+                ),
+            )
             for claim in ordered:
                 remaining = target - cjk_count("".join(f for f, _ in fragments))
-                fragment = take_cjk_prefix(str(claim["text"]), remaining)
+                claim_text = str(claim["text"])
+                if kinds == {"context"}:
+                    positions = technical_term_positions(claim_text)
+                    if positions:
+                        claim_text = claim_text[:positions[0][1]].rstrip("，。；、 ")
+                elif not result and technical_terms(claim_text):
+                    # When short Claims force a solution to use a second
+                    # source, keep the business-safe prefix of a technical
+                    # architecture Claim.  The control/delivery Claim already
+                    # carries the action; this avoids technical-term overload
+                    # without inventing a connective sentence.
+                    remaining_before_claim = remaining
+                    for safe_segment in technical_safe_segments(claim_text):
+                        if remaining_before_claim <= 0:
+                            break
+                        fragment = take_cjk_prefix(safe_segment, remaining_before_claim)
+                        if fragment:
+                            fragments.append((fragment, str(claim["id"])))
+                            remaining_before_claim -= cjk_count(fragment)
+                        if cjk_count("".join(f for f, _ in fragments)) >= min_chars:
+                            break
+                    if cjk_count("".join(f for f, _ in fragments)) >= min_chars:
+                        break
+                    continue
+                fragment = take_cjk_prefix(claim_text, remaining)
                 if fragment:
                     fragments.append((fragment, str(claim["id"])))
                 if cjk_count("".join(f for f, _ in fragments)) >= min_chars:
@@ -256,8 +378,9 @@ def compose_stage(
     if result:
         terminal_phrase = fragments[-1][0]
         # A metric result must visibly retain a number/percentage in the
-        # terminal phrase; otherwise the caller will request user material.
-        if not NUMBER_RE.search(terminal_phrase):
+        # terminal phrase. Non-metric results intentionally remain qualitative
+        # and are checked against architecture/control/delivery Claim kinds.
+        if terminal.get("kind") == "metric" and not metric_tokens_for_text(terminal_phrase, numeric_re=NUMBER_RE):
             return None
         return {
             "text": text,
@@ -277,13 +400,26 @@ def compose_stage(
 
 def build_typeset_candidate(
     plan: dict[str, Any], existing_typeset: dict[str, Any] | None = None,
-    *, content_mode: str | None = None,
+    *, content_mode: str | None = None, expanded_target_chars: int | None = None,
 ) -> dict[str, Any] | None:
     content_mode = content_mode or str((existing_typeset or {}).get("content_mode", "normal"))
     bounds = {"normal": (40, 50), "compressed": (30, 40), "expanded": (50, 130)}
     if content_mode not in bounds:
         return None
     min_chars, max_chars = bounds[content_mode]
+    expanded_max_chars = max_chars
+    if content_mode == "expanded":
+        expanded_max_chars = max(50, min(120, expanded_target_chars or 80))
+        if str((existing_typeset or {}).get("content_mode", "")) == "expanded":
+            existing_lengths = [
+                cjk_count(str(bullet.get("text", "")))
+                for project in (existing_typeset or {}).get("projects", [])
+                if isinstance(project, dict)
+                for bullet in project.get("bullets", [])
+                if isinstance(bullet, dict)
+            ]
+            if existing_lengths:
+                expanded_max_chars = min(120, max(existing_lengths) + 15)
     existing_by_id = {
         str(project.get("id")): project
         for project in (existing_typeset or {}).get("projects", [])
@@ -302,10 +438,20 @@ def build_typeset_candidate(
             projects.append(existing_by_id[project_id])
             continue
         claims = [c for c in project.get("claims", []) if isinstance(c, dict) and c.get("allowed_for_resume", True)]
+        has_usable_metric = any(
+            c.get("kind") == "metric"
+            and result_kinds_for_text(
+                str(c.get("text", "")), numeric_re=NUMBER_RE,
+                effect_terms=("提升", "降低"),
+            ) == {"metric"}
+            for c in claims
+        )
+        result_kinds = {"metric"} if has_usable_metric else {"architecture", "control", "delivery"}
+        stage_max_chars = expanded_max_chars if content_mode == "expanded" else max_chars
         stages = [
-            compose_stage(claims, {"context"}, min_chars=min_chars, max_chars=max_chars),
-            compose_stage(claims, {"architecture", "control", "delivery"}, min_chars=min_chars, max_chars=max_chars),
-            compose_stage(claims, {"metric"}, result=True, min_chars=min_chars, max_chars=max_chars),
+            compose_stage(claims, {"context"}, min_chars=min_chars, max_chars=stage_max_chars),
+            compose_stage(claims, {"architecture", "control", "delivery"}, min_chars=min_chars, max_chars=stage_max_chars),
+            compose_stage(claims, result_kinds, result=True, min_chars=min_chars, max_chars=stage_max_chars),
         ]
         if any(stage is None for stage in stages):
             return None
@@ -435,8 +581,8 @@ def build_event(failed_manifest_path: Path) -> dict[str, Any]:
                     redacted_inputs["layout_vars_sha256"] = layout_hash
         except AutoLoopError:
             pass
-    gate = "content_gate_blocked" if code in NON_OPTIMIZABLE_CODES else (
-        "delivery_gate_blocked" if code in {"DELIVERY_GATE_BLOCKED", "DOCX_DELIVERY_BLOCKED"} else "layout_gate_blocked"
+    gate = "needs_user_input" if code in NON_OPTIMIZABLE_CODES else (
+        "blocked" if code in {"DELIVERY_GATE_BLOCKED", "DOCX_DELIVERY_BLOCKED"} else "blocked"
     )
     eligible = is_eligible(code, phase)
     event = {

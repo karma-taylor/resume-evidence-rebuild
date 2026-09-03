@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Private Benchmark Expected Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "fixture_id",
+    "route",
+    "generate_pdf",
+    "generate_docx",
+    "page_count",
+    "error_codes",
+    "sentinels",
+    "project_count",
+    "photo_forbidden",
+    "reject_unsupported_jd_claims"
+  ],
+  "properties": {
+    "fixture_id": {
+      "type": "string",
+      "pattern": "^fixture-(0[1-9]|[1-4][0-9]|50)$"
+    },
+    "route": {
+      "type": "string",
+      "enum": ["eligible_for_approval", "bounded", "needs_user_input", "blocked", "ready", "evidence_gate_blocked"]
+    },
+    "generate_pdf": {"type": "boolean"},
+    "generate_docx": {"type": "boolean"},
+    "page_count": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "error_codes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "sentinels": {
+      "type": "array",
+      "minItems": 4,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "project_count": {"type": "integer", "minimum": 0, "maximum": 4},
+    "photo_forbidden": {"type": "boolean"},
+    "reject_unsupported_jd_claims": {"type": "boolean"},
+    "immutable_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string"},
+        "phone": {"type": "string"},
+        "email": {"type": "string"},
+        "portfolio_url": {"type": "string"}
+      }
+    }
+  }
+}

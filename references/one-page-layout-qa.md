@@ -20,12 +20,12 @@
 - 个人信息固定为：姓名 20pt 可见加粗、职位 11.5pt 半粗、联系方式 10pt；模块标题 12pt、工作单位／职务和项目标题 11pt 均使用显式可见加粗，正文与日期 10pt 常规字重。
 - 照片页眉中，左侧个人信息相对照片垂直居中；教育逐条显示学校／学位与已授权起止年份。
 - 姓名行至电话行保留 20pt，电话行至地点行保留 15pt；照片相对原右对齐位置向左偏移 8pt。
-- 普通 10pt 正文固定为 **1.4 倍行距**；同一个工作/项目 bullet 的上下换行固定为 **1.3 倍行距**，相邻 bullet 之间固定为 **1.5 倍正文基准间距**：Typst 普通段落使用 `#set par(leading: 0.4em, spacing: 0.5pt)`，bullet 使用局部 `set par(leading: 0.3em, spacing: 5pt)`；DOCX 普通段落使用 `w:line=336`/`w:after=10`，bullet 使用 `w:line=312`/`w:after=100`，均为 `w:lineRule=auto`。每个工作或项目 bullet 均为独立段落；不得在 Reflow 中改变正文行距或叠加段后距。PDF trace/manifest 必须同时保留正文与 bullet 的基准字号、期望倍率和实测倍率，并记录相邻 bullet 间隔的实测范围；不能只用固定期望值代替倍率核验。工作 bullet 直接呈现业务动作与效果，不强制套用项目的背景／解决／结果标签。
+- 普通 10pt 正文固定为 **物理 14pt 行距**；同一个工作/项目 bullet 的上下换行固定为 **物理 13pt 行距**，相邻 bullet 之间固定为 **1.5 倍正文基准间距**：Typst 普通段落使用 `#set par(leading: 0.4em, spacing: 0.5pt)`，bullet 使用局部 `set par(leading: 0.3em, spacing: 5pt)`；DOCX 普通段落使用 `w:line=280`/`w:after=10`，bullet 使用 `w:line=260`/`w:after=40`，均为 `w:lineRule=exact`，从而在 LibreOffice 中形成实测 15pt 相邻基线间隔。禁止使用会因微软雅黑内部行框而在 LibreOffice 中膨胀的 `auto` 倍率。每个工作或项目 bullet 均为独立段落；不得在 Reflow 中改变正文行距或叠加段后距。PDF trace/manifest 必须同时保留正文与 bullet 的基准字号、期望倍率和实测倍率，并记录相邻 bullet 间隔的实测范围；不能只用固定期望值代替倍率核验。工作 bullet 直接呈现业务动作与效果，不强制套用项目的背景／解决／结果标签。
 - 高管编辑风的正文与日期统一纯黑；姓名、目标职位、模块标题、工作单位／职务和项目标题使用蓝色显式加粗。项目结果、效率提升和关键交付结论只对证据支持的短语加黑粗体，避免整段变成黑块。
 - 加粗应有选择性，帮助扫描，而不是形成密集黑块。
 - 每个声明的加粗短语必须以显式粗体字重和轻描边输出，且优先覆盖技术成果、优化效果、指标、命名架构或关键控制规则；仅有 manifest 声明而 PDF 正文未见字重差异视为失败。
 - 最终 PNG 渲染不得存在 CJK 缺字、重叠或意外背景块。
-- QA 必须检查最终 artifact，而非只检查模板、内存对象或 trace 自报状态。DOCX 需验证 document.xml 中普通段落为 `w:line=336`/`w:after=10`、bullet 段落为 `w:line=312`/`w:after=100`，两者均为 `w:lineRule=auto`，并用 LibreOffice 实际渲染复核；未通过的文件进入 quarantine，不得生成交付 manifest。
+- QA 必须检查最终 artifact，而非只检查模板、内存对象或 trace 自报状态。DOCX 需验证 document.xml 中普通段落为 `w:line=280`/`w:after=10`、bullet 段落为 `w:line=260`/`w:after=40`，两者均为 `w:lineRule=exact`，并用 LibreOffice 实际渲染复核；未通过的文件进入 quarantine，不得生成交付 manifest。
 - PDF 四边最小边界按 36pt（1.27cm）比较，允许不超过 0.5pt 的 PDF/字体坐标转换噪声；低于 35.5pt 才判定为真实边距越界。每轮渲染前清理旧的 `geometry-qa.json`，并禁止将历史测量作为本轮结果。
 
 ## 失败后的自动诊断

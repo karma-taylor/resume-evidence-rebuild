@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Run an evidence-preserving SkillOpt validation gate over JSON fixtures.
+"""Run an evidence-preserving SkillOpt validation gate over directory fixtures.
 
 The renderer and QA checker are supplied by the host project.  Both commands
 are command templates (not shell snippets) and may use these placeholders:
 
-* ``{fixture}``    absolute path to one JSON fixture
+* ``{fixture}``    absolute path to one fixture directory
 * ``{skill}``      incumbent or temporary candidate SKILL.md
 * ``{output_dir}`` per-fixture output directory
 * ``{pdf}``        PDF reported by the renderer (QA command only)
@@ -26,6 +26,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Iterable
@@ -120,9 +121,16 @@ def create_candidate(incumbent: Path, proposal: Path, candidate: Path) -> Path:
 def discover_fixtures(root: Path) -> list[Path]:
     if not root.is_dir():
         raise GateError(f"Fixture root is not a directory: {root}")
-    fixtures = sorted(path.resolve() for path in root.rglob("*.json") if path.is_file())
+    # A fixture is one directory. Its manifest and expected JSON are metadata
+    # for that atomic sample, not separate benchmark inputs. Root-level status
+    # and report JSON files are therefore intentionally ignored.
+    fixtures = sorted({
+        manifest.parent.resolve()
+        for manifest in root.rglob("manifest.json")
+        if manifest.is_file() and manifest.parent.is_dir()
+    })
     if not fixtures:
-        raise GateError(f"No JSON fixtures found below {root}")
+        raise GateError(f"No directory fixtures with manifest.json found below {root}")
     return fixtures
 
 
@@ -220,6 +228,36 @@ def score(results: list[FixtureResult]) -> Score:
     return Score(total=len(results), passed=sum(result.passed for result in results))
 
 
+def benchmark_score(results: list[FixtureResult]) -> dict[str, Any]:
+    """Adapt directory-fixture results to the stable SkillOpt score contract.
+
+    ``Score`` remains the small internal type used by the promotion decision,
+    while reports expose the same machine-readable shape as the private
+    runner.  This prevents the validation gate from silently treating a
+    directory fixture as an individual JSON file or dropping safety findings
+    during the adapter step.
+    """
+    summary = score(results)
+    findings = Counter(
+        finding["code"]
+        for result in results
+        for finding in result.findings
+        if finding["severity"].lower() == "error"
+    )
+    return {
+        "total": summary.total,
+        "passed": summary.passed,
+        "a4_qa_pass_rate": summary.pass_rate,
+        "findings_by_code": dict(sorted(findings.items())),
+        "sentinel_failures": sorted(
+            f"{result.fixture}:{code}"
+            for result in results
+            for code in result.error_codes
+            if code in SAFETY_CODES
+        ),
+    }
+
+
 def new_safety_regressions(incumbent: list[FixtureResult], candidate: list[FixtureResult]) -> dict[str, list[str]]:
     baseline = {item.fixture: item.error_codes for item in incumbent}
     regressions: dict[str, list[str]] = {}
@@ -248,8 +286,8 @@ def decide(incumbent: list[FixtureResult], candidate: list[FixtureResult]) -> tu
 def write_report(path: Path, incumbent: list[FixtureResult], candidate: list[FixtureResult], error: str | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
-        "incumbent": {"score": asdict(score(incumbent)), "fixtures": [asdict(item) for item in incumbent]},
-        "candidate": {"score": asdict(score(candidate)), "fixtures": [asdict(item) for item in candidate]},
+        "incumbent": {"score": benchmark_score(incumbent), "fixtures": [asdict(item) for item in incumbent]},
+        "candidate": {"score": benchmark_score(candidate), "fixtures": [asdict(item) for item in candidate]},
         "error": error,
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -259,7 +297,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--skill", type=Path, required=True, help="Active incumbent SKILL.md")
     parser.add_argument("--proposal", type=Path, required=True, help="Optimizer JSON Patch or envelope")
-    parser.add_argument("--fixtures", type=Path, required=True, help="Directory recursively containing JSON fixtures")
+    parser.add_argument("--fixtures", type=Path, required=True, help="Directory recursively containing fixture directories")
     parser.add_argument("--render-command", required=True, help="Renderer command template; emits Typst PDF and optional DOCX JSON")
     parser.add_argument("--qa-command", required=True, help="A4 QA command template; emits findings JSON")
     parser.add_argument("--work-dir", type=Path, required=True, help="Private runtime directory")

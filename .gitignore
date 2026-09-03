@@ -22,6 +22,7 @@ tmp/
 rendered/
 __pycache__/
 *.pyc
+**/.DS_Store
 
 # Secrets and private evaluation assets
 *.key
