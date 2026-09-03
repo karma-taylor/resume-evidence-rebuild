@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.5 — 2026-09-03
+
+- Fixed public smoke failure diagnostics to inspect both the output root and `quarantine/<run_id>/`, exposing only the actual gate code and other non-sensitive metadata.
+
 ## 1.0.4 — 2026-09-03
 
 - Improved public PDF smoke diagnostics with route, Reflow state, layout state, page count, and error codes only; resume text, private paths, and generated artifacts remain excluded.

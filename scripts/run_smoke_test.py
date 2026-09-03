@@ -26,10 +26,13 @@ def validate(instance: object, schema_path: Path, label: str) -> None:
 def failure_diagnostics(output: Path) -> dict[str, object]:
     """Return non-sensitive gate facts when the public smoke build fails."""
     diagnostics: dict[str, object] = {}
-    for name in ("delivery-manifest.json", "geometry-qa.json", "reflow-trace.json"):
-        path = output / name
-        if not path.is_file():
+    paths_by_name: dict[str, list[Path]] = {}
+    for name in ("delivery-manifest.json", "geometry-qa.json", "reflow-trace.json", "failed-manifest.json"):
+        paths_by_name[name] = [path for path in output.rglob(name) if path.is_file()]
+    for name, paths in paths_by_name.items():
+        if not paths:
             continue
+        path = max(paths, key=lambda candidate: candidate.stat().st_mtime)
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
@@ -57,6 +60,9 @@ def failure_diagnostics(output: Path) -> dict[str, object]:
                 for finding in payload.get("findings", [])
                 if isinstance(finding, dict) and isinstance(finding.get("code"), str)
             ] if isinstance(payload, dict) else []
+        elif name == "failed-manifest.json":
+            error = payload.get("error") if isinstance(payload, dict) else None
+            diagnostics["failure_code"] = error.get("code") if isinstance(error, dict) else None
         else:
             diagnostics["delivery_status"] = payload.get("status") if isinstance(payload, dict) else None
     return diagnostics

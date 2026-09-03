@@ -59,6 +59,10 @@ python scripts/build_resume.py \
 
 - 改进公共 PDF smoke 失败报告：当字体或版式环境导致构建阻断时，CI 只输出脱敏后的 route、Reflow 状态、布局档位、页数和错误码，便于定位而不会暴露简历内容、私有路径或生成物。
 
+### 1.0.5 — 2026-09-03
+
+- 修正 smoke 失败诊断的扫描范围：同时检查输出根目录和 `quarantine/<run_id>/` 隔离目录，确保公共 CI 能报告实际失败码，而不是只显示泛化的 `blocked`。
+
 ### 1.0.2 — 2026-09-03
 
 - 将私有基准统一为 `fixture-01/` 至 `fixture-50/` 目录，每个目录包含 `manifest.json`、`expected.json`、`profile.yaml`、`template.yaml` 和 `materials/inbox.yaml`。
