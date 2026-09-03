@@ -5,6 +5,16 @@
   "required": ["target_role", "projects"],
   "properties": {
     "target_role": {"type": "string"},
+    "selection": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mode", "project_ids"],
+      "properties": {
+        "mode": {"enum": ["template", "jd"]},
+        "project_ids": {"type": "array", "minItems": 3, "maxItems": 4, "uniqueItems": true, "items": {"type": "string"}},
+        "jd_text_sha256": {"type": ["string", "null"], "pattern": "^[a-fA-F0-9]{64}$"},
+        "evidence_map_sha256": {"type": ["string", "null"], "pattern": "^[a-fA-F0-9]{64}$"}
+      }
+    },
     "projects": {"type": "array", "minItems": 3, "maxItems": 4, "items": {"type": "object", "required": ["id", "claim_ids", "claims"], "properties": {"id": {"type": "string"}, "claim_ids": {"type": "array", "minItems": 3, "items": {"type": "string"}}, "claims": {"type": "array", "minItems": 3, "items": {"type": "object"}}}}}
   }
 }

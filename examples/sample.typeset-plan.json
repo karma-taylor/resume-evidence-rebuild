@@ -1,28 +1,19 @@
 {
   "projects": [
-    {
-      "id": "work-calendar",
-      "bullets": [
-        {"text": "围绕任务协调场景，将任务周期、人员时间窗与名单变更抽象为可配置对象，并以日历视图呈现跨周期安排，降低人工反复核对排班关系与临时沟通造成的信息理解成本。", "bold_phrases_used": ["任务周期"], "source_claim_ids": ["cal-context"]},
-        {"text": "在保存动作前引入修订令牌与冲突判定规则，对并发变更、重复安排和无效时间区间进行结构化提示，并将可追溯审计记录保留至演示数据中，支持后续复盘与规则验证。", "bold_phrases_used": ["修订令牌"], "source_claim_ids": ["cal-control"]},
-        {"text": "设计写入前预览和结构化校验错误返回机制，将依赖人工经验的确认步骤前置为系统防呆边界，帮助使用者在提交前定位名单状态、任务周期及时间区间之间的不一致。", "bold_phrases_used": ["写入前预览", "结构化校验"], "source_claim_ids": ["cal-context", "cal-delivery"]}
-      ]
-    },
-    {
-      "id": "hybrid-rag",
-      "bullets": [
-        {"text": "面向知识问答场景梳理术语差异与访问权限约束，将检索候选、证据引用和回答范围拆分为可验证环节，避免将未授权内容直接纳入生成链路，并记录响应的适用边界。", "bold_phrases_used": ["访问权限约束", "证据引用"], "source_claim_ids": ["rag-context", "rag-control"]},
-        {"text": "采用 ACL 优先过滤策略，使权限判断发生在检索之前，同时保留检索片段与证据引用的关联关系；该规则用于风险控制设计，不将合成场景能力表述为任何真实生产成果。", "bold_phrases_used": ["ACL 优先过滤", "证据引用"], "source_claim_ids": ["rag-control"]},
-        {"text": "建立合成评测结果的范围标识与发布口径，要求页面明确区分非生产环境数据和实际效果；通过记录问题、引用和验证状态，为后续补充评测集及人工验收预留接口。", "bold_phrases_used": ["合成评测结果", "非生产环境"], "source_claim_ids": ["rag-metric"]}
-      ]
-    },
-    {
-      "id": "sales-agent",
-      "bullets": [
-        {"text": "将信息提取、建议生成和草稿输出拆分为独立步骤，为销售流程 Agent 建立可观察的路由链路；每个步骤均保留输入来源和中间状态，便于定位生成偏差并限制无证据内容扩散。", "bold_phrases_used": ["信息提取", "建议"], "source_claim_ids": ["sales-context"]},
-        {"text": "当来源证据缺失时，结构化校验阻断草稿生成流程，并返回可定位错误原因与补充信息提示；该设计把风险处理前置到生成前，而非依赖事后发现并纠正出现的错误内容。", "bold_phrases_used": ["来源证据缺失", "结构化校验"], "source_claim_ids": ["sales-control"]},
-        {"text": "为每份生成草稿保留人工复核作为必要交付边界，结合可审阅的来源信息和处理状态，支持演示人员验证输出是否符合流程；不将草稿文本视为可直接对外使用的结论。", "bold_phrases_used": ["人工复核", "生成草稿"], "source_claim_ids": ["sales-delivery"]}
-      ]
-    }
+    {"id": "work-calendar", "overview": {"text": "任务周期、角色时间窗和冲突状态均在虚构演示数据中建模。", "source_claim_ids": ["cal-context"]}, "bullets": [
+      {"text": "围绕虚构演示场景梳理角色时间窗与冲突状态的配置关系，将日历视图中的协同安排限定在合成数据范围内，并保留边界、处理过程和复核路径的说明，使用修订令牌。", "bold_phrases_used": ["修订令牌"], "terminal_bold_phrase": "修订令牌", "source_claim_ids": ["cal-control"]},
+      {"text": "在虚构演示写入前设置并发约束与审计留痕规则，对重复提交和状态变更进行提示，避免将未经核验的信息带入后续流程，同时保留可回溯的处理依据，使用修订令牌。", "bold_phrases_used": ["修订令牌"], "terminal_bold_phrase": "修订令牌", "source_claim_ids": ["cal-control"]},
+      {"text": "面向演示流程补充提交前核对步骤与异常反馈说明，使使用者能够在操作完成前查看信息和校验结果，不将该能力表述为真实生产成果，并通过提示落实写入前预览。", "bold_phrases_used": ["写入前预览"], "terminal_bold_phrase": "写入前预览", "source_claim_ids": ["cal-delivery"]}
+    ]},
+    {"id": "hybrid-rag", "overview": {"text": "ACL 优先过滤位于检索之前，并保留证据引用关联。", "source_claim_ids": ["rag-architecture"]}, "bullets": [
+      {"text": "针对虚构知识问答中的术语差异与权限明确检索范围，要求内容生成前保留来源说明与适用边界，避免把演示结论误作生产能力，并在受控路径中执行ACL 优先过滤。", "bold_phrases_used": ["ACL 优先过滤"], "terminal_bold_phrase": "ACL 优先过滤", "source_claim_ids": ["rag-control"]},
+      {"text": "将权限判断前置到候选检索环节，并说明该规则只适用于合成环境下的风险控制设计，输出保留可追溯来源关系和审查空间，不声明任何真实效果或指标，执行ACL 优先过滤。", "bold_phrases_used": ["ACL 优先过滤"], "terminal_bold_phrase": "ACL 优先过滤", "source_claim_ids": ["rag-control"]},
+      {"text": "为合成评测输出增加范围标记与复核说明，要求页面区分非生产数据和可验证结论，使演示人员追踪来源、验证状态和处理边界，避免以描述替代成果，执行ACL 优先过滤。", "bold_phrases_used": ["ACL 优先过滤"], "terminal_bold_phrase": "ACL 优先过滤", "source_claim_ids": ["rag-control"]}
+    ]},
+    {"id": "sales-agent", "overview": {"text": "每一份生成草稿仍必须经过人工复核后方可使用。", "source_claim_ids": ["sales-delivery"]}, "bullets": [
+      {"text": "将虚构智能体流程拆分为提取、建议和草稿生成环节，环节保留输入来源与处理中间状态，便于演示人员检查输出边界和偏差，避免无依据内容扩散，明确要求人工复核。", "bold_phrases_used": ["人工复核"], "terminal_bold_phrase": "人工复核", "source_claim_ids": ["sales-delivery"]},
+      {"text": "当来源材料不足时，在草稿生成之前返回提示和阻断结果，要求使用者补充依据后再进入后续步骤，将风险处置固定在流程前段并保留审查边界，处理来源证据缺失。", "bold_phrases_used": ["来源证据缺失"], "terminal_bold_phrase": "来源证据缺失", "source_claim_ids": ["sales-control"]},
+      {"text": "为每份虚构草稿设置确认和审阅环节，保留来源信息、处理状态及交付限制说明，确保演示输出不会被误作直接对外结论，并为后续核查提供清晰依据，明确要求人工复核。", "bold_phrases_used": ["人工复核"], "terminal_bold_phrase": "人工复核", "source_claim_ids": ["sales-delivery"]}
+    ]}
   ]
 }

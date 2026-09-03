@@ -1,102 +1,121 @@
 identity:
-  name: Example Candidate
+  name: 示例候选人
   phone: "+1 555 010 0100"
   email: sample@example.com
   portfolio_url: https://example.invalid/portfolio
-  location: Example City
+  location: 示例城市
   market: NA
 education:
-  - school: Example Institute
-    degree: MSc
-    major: Information Systems
+  - school: 示例学院
+    degree: 硕士
+    major: 信息系统
     start: "2020"
     end: "2022"
 employment:
-  - employer: Example Operations Ltd.
-    title: Delivery Manager
+  - employer: 示例运营公司
+    title: 交付经理
     start: "2022.07"
-    end: Present
-    summary: Coordinates business and technical delivery.
-certifications: [Example Cloud AI Professional]
+    end: 至今
+    highlights:
+      - text: 组织需求澄清、风险跟踪和验收边界确认，沉淀可追溯任务分工与交付记录。
+        source_ingestion_id: fixture-work-01
+        approved_at: "2026-01-01T00:00:00+00:00"
+      - text: 汇总流程节点、责任边界与数据口径差异，推动需求确认、异常升级和复盘闭环。
+        source_ingestion_id: fixture-work-02
+        approved_at: "2026-01-01T00:00:00+00:00"
+      - text: 围绕 PDF 账单录入原型梳理用户操作、人工复核、异常处理与结果回写边界。
+        source_ingestion_id: fixture-work-03
+        approved_at: "2026-01-01T00:00:00+00:00"
+      - text: 维护任务状态、风险清单、验收记录和变更说明，支持跨团队计划对齐与交付复盘。
+        source_ingestion_id: fixture-work-04
+        approved_at: "2026-01-01T00:00:00+00:00"
+certifications: [示例云端 AI 专业认证]
 projects:
   - id: work-calendar
     title: 虚构排班协同工具
     start: "2024.09"
-    end: Present
+    end: 至今
     tags: [React, API]
     claims:
       - id: cal-context
         kind: context
         text: 任务周期、角色时间窗和冲突状态均在虚构演示数据中建模。
-        source: synthetic-fixture
-        scope: synthetic only
+        source: 合成样本
+        scope: 仅合成环境
         confidence: verified
         allowed_for_resume: true
       - id: cal-control
         kind: control
         text: 修订令牌拒绝并发写入，并保留虚构的审计记录。
-        source: synthetic-fixture
-        scope: synthetic only
+        source: 合成样本
+        scope: 仅合成环境
         confidence: verified
         allowed_for_resume: true
       - id: cal-delivery
         kind: delivery
         text: 演示提供写入前预览和结构化校验错误返回机制。
-        source: synthetic-fixture
-        scope: synthetic only
+        source: 合成样本
+        scope: 仅合成环境
         confidence: verified
         allowed_for_resume: true
   - id: hybrid-rag
     title: 虚构检索问答工具
     start: "2024.10"
-    end: Present
+    end: 至今
     tags: [BM25, Reranker]
     claims:
+      - id: rag-architecture
+        kind: architecture
+        text: ACL 优先过滤位于检索之前，并保留证据引用关联。
+        source: 合成样本
+        scope: 仅合成环境
+        confidence: verified
+        allowed_for_resume: true
       - id: rag-context
         kind: context
         text: 虚构检索演示处理术语差异与访问权限约束问题。
-        source: synthetic-fixture
-        scope: synthetic only
+        source: 合成样本
+        scope: 仅合成环境
         confidence: verified
         allowed_for_resume: true
       - id: rag-control
         kind: control
         text: ACL 优先过滤位于检索之前，并保留证据引用关联。
-        source: synthetic-fixture
-        scope: synthetic only
+        source: 合成样本
+        scope: 仅合成环境
         confidence: verified
         allowed_for_resume: true
       - id: rag-metric
         kind: metric
         text: 合成评测结果明确标记为非生产环境范围数据。
-        source: synthetic-fixture
-        scope: synthetic only
+        source: 合成样本
+        scope: 仅合成环境
         confidence: bounded
         allowed_for_resume: true
   - id: sales-agent
     title: 虚构销售流程 Agent
     start: "2024.11"
-    end: Present
+    end: 至今
     tags: [Pydantic, E2E]
     claims:
       - id: sales-context
         kind: context
         text: 虚构智能体演示分离信息提取、建议与草稿生成步骤。
-        source: synthetic-fixture
-        scope: synthetic only
+        source: 合成样本
+        scope: 仅合成环境
         confidence: verified
         allowed_for_resume: true
       - id: sales-control
         kind: control
         text: 当来源证据缺失时，结构化校验阻断草稿生成流程。
-        source: synthetic-fixture
-        scope: synthetic only
+        source: 合成样本
+        scope: 仅合成环境
         confidence: verified
         allowed_for_resume: true
       - id: sales-delivery
         kind: delivery
         text: 每一份生成草稿仍必须经过人工复核后方可使用。
-        source: synthetic-fixture
-        scope: synthetic only
+        source: 合成样本
+        scope: 仅合成环境
         confidence: verified
         allowed_for_resume: true

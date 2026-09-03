@@ -1,13 +1,13 @@
 id: ai-product-manager
-target_role: Enterprise AI Product Manager
+target_role: 企业 AI 产品经理
 market: CN
 project_ids: [hybrid-rag, resume-harness, sales-agent]
-sections: [profile, employment, projects, education-certifications]
+sections: [profile, technical-skills, employment, projects, education-certifications]
 layout:
   page: A4
   columns: 1
   min_body_pt: 10
-  body_leading_pt: 15
+  body_line_height_multiplier: 1.4
 selection_weights:
   product: 1.0
   evaluation: 1.0

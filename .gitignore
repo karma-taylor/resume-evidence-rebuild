@@ -1,6 +1,12 @@
 # Private profile, evidence, and generated deliverables
 .env
 profiles/*.yaml
+ingestion_inbox.yaml
+**/ingestion_inbox.yaml
+jd-brief.json
+**/jd-brief.json
+jd-evidence-map.json
+**/jd-evidence-map.json
 !profiles/*.example.yaml
 !profiles/*.schema.yaml
 private/
@@ -32,5 +38,6 @@ assets/evaluations/
 assets/rejected/
 assets/backups/
 runtime/
+.skillopt-runtime/
 benchmarks/private/
 benchmark-results/

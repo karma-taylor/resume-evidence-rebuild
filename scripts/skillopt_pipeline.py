@@ -31,7 +31,17 @@ ALLOWED_PATHS = {
 ALLOWED_OPS = {"add", "remove", "replace"}
 MAX_PATCH_OPS = 3
 MAX_CHAR_DELTA = 450
-PROTECTED_MARKERS = ("## Evidence and safety", "## SkillOpt")
+PROTECTED_MARKERS = ("## Evidence and safety", "## 证据与安全", "## SkillOpt")
+
+# The public JSON Patch contract intentionally uses stable ASCII keys while
+# the human-facing SKILL.md may use localized headings.  Resolve aliases here
+# so an allowed patch can target the current Chinese document without
+# weakening the path whitelist or depending on a specific language.
+SECTION_ALIASES = {
+    "workflow": ("工作流", "workflow"),
+    "output-routing": ("输出路由", "output-routing"),
+    "one-page-layout-qa": ("单页-a4-qa", "one-page-layout-qa"),
+}
 
 SYSTEM_PROMPT = """You are SkillOpt, an optimizer for the Resume Evidence Rebuild skill. Your task is to reduce repeatable one-page A4 QA failures without weakening factual, privacy, or authorization safeguards.
 
@@ -159,7 +169,16 @@ def apply_bounded_patch(skill_text: str, operations: list[dict[str, Any]]) -> tu
         raise ValueError(f"patch exceeds {MAX_PATCH_OPS} operations")
     frontmatter, body = split_frontmatter(skill_text)
     sections, order = markdown_to_sections(body)
-    original = {"sections": {key: sections[key] for key in ALLOWED_PATHS_TO_KEYS() if key in sections}}
+    actual_sections: dict[str, str] = {}
+    for alias, candidates in SECTION_ALIASES.items():
+        actual_sections[alias] = next((candidate for candidate in candidates if candidate in sections), "")
+    original = {
+        "sections": {
+            alias: sections[actual]
+            for alias, actual in actual_sections.items()
+            if actual
+        }
+    }
     before = json.dumps(original, ensure_ascii=False, sort_keys=True)
     for op in operations:
         if op.get("op") not in ALLOWED_OPS or op.get("path") not in ALLOWED_PATHS:
@@ -171,12 +190,16 @@ def apply_bounded_patch(skill_text: str, operations: list[dict[str, Any]]) -> tu
     after = json.dumps(changed, ensure_ascii=False, sort_keys=True)
     if abs(len(after) - len(before)) > MAX_CHAR_DELTA:
         raise ValueError(f"patch exceeds {MAX_CHAR_DELTA}-character delta")
-    for key, value in changed["sections"].items():
-        if key not in sections or not isinstance(value, str) or not value.startswith("## "):
-            raise ValueError(f"patch removed or malformed section {key}")
-        sections[key] = value if value.endswith("\n") else value + "\n"
+    for alias, value in changed["sections"].items():
+        actual = actual_sections.get(alias)
+        if not actual or actual not in sections or not isinstance(value, str) or not value.startswith("## "):
+            raise ValueError(f"patch removed or malformed section {alias}")
+        sections[actual] = value if value.endswith("\n") else value + "\n"
     candidate = frontmatter + "".join(sections[key] for key in order)
-    if any(marker not in candidate for marker in PROTECTED_MARKERS):
+    protected_evidence_present = any(
+        marker in candidate for marker in ("## Evidence and safety", "## 证据与安全")
+    )
+    if not protected_evidence_present or "## SkillOpt" not in candidate:
         raise ValueError("candidate changed a protected section")
     return candidate, operations
 
@@ -196,9 +219,14 @@ def call_optimizer(summary: dict[str, Any], skill_text: str) -> OptimizerRespons
         raise RuntimeError("--execute requires SKILLOPT_API_KEY and SKILLOPT_MODEL")
     _, body = split_frontmatter(skill_text)
     sections, _ = markdown_to_sections(body)
+    mutable_sections = {
+        alias: sections[next((candidate for candidate in candidates if candidate in sections), "")]
+        for alias, candidates in SECTION_ALIASES.items()
+        if next((candidate for candidate in candidates if candidate in sections), "")
+    }
     payload = {
         "failure_summary": summary,
-        "mutable_sections": {key: sections.get(key, "") for key in ALLOWED_PATHS_TO_KEYS()},
+        "mutable_sections": mutable_sections,
         "patch_constraints": {"max_operations": MAX_PATCH_OPS, "max_character_delta": MAX_CHAR_DELTA,
                               "allowed_paths": sorted(ALLOWED_PATHS)},
     }
@@ -218,6 +246,12 @@ def call_optimizer(summary: dict[str, Any], skill_text: str) -> OptimizerRespons
 
 def run_benchmark(command: str, skill_path: Path, label: str) -> BenchmarkScore:
     env = os.environ.copy()
+    # Benchmark fixtures must be pure observations.  Do not let the automatic
+    # failure hook recursively launch another SkillOpt run when a fixture's
+    # renderer intentionally produces a negative QA result.
+    for key in ("SKILLOPT_AUTO_ENABLED", "SKILLOPT_RUNTIME_ROOT", "SKILLOPT_SKILL_PATH",
+                "SKILLOPT_BENCHMARK_COMMAND", "SKILLOPT_PROPOSAL_PATH", "SKILLOPT_EXECUTE"):
+        env.pop(key, None)
     env.update({"SKILLOPT_SKILL_PATH": str(skill_path), "SKILLOPT_RUN_LABEL": label})
     completed = subprocess.run(command, shell=True, capture_output=True, text=True, env=env, check=False)
     if completed.returncode:

@@ -1,18 +1,33 @@
-# One-Page Layout QA
+# 单页版式 QA
 
-Use this reference when the resume must fit a single A4 or Letter page.
+当简历必须适配单页 A4 或 Letter 时阅读本参考。
 
-## Content priorities
+## 内容优先级
 
-1. Keep the target role, contact block, and strongest proof visible in the top third.
-2. Choose three to four distinct, evidence-backed projects. Remove weak or overlapping projects before shrinking type.
-3. Write project bullets as a complete thought across roughly one-and-a-half to two lines when density allows. Bold only metrics, named architectures, and critical controls.
-4. Use whitespace as hierarchy, not as unused page area. Expand readable line height and project spacing before adding filler text.
+1. 在顶部三分之一内展示目标岗位、联系方式与最强证据。
+2. 选择 3–4 个不同且有证据支持的项目；缩小字号前先删除较弱或重叠的项目。
+3. 密度允许时，让项目要点表达完整思想并占约 1.5–2 行；只加粗指标、命名架构和关键控制规则。
+4. 留白用于层级，而不是制造未使用页面区域。应先调整可读行高与项目间距，不得用无意义内容填充。
+5. 工作经历的单位／职务与日期为独立首行，职责摘要必须另起一行；不能依赖源文本中的普通换行实现版式分行。
 
-## Visual checks
+## 视觉检查
 
-- Headshot and contact details are proportionate and readable.
-- No heading, project bullet, or certificate line is clipped or orphaned.
-- Sections have consistent rhythm; lower-page content neither crowds the footer nor leaves a conspicuous empty block.
-- Bold is selective and supports scanning rather than creating a dense black texture.
-- Final PNG rendering has no missing CJK glyphs, overlap, or unintended background blocks.
+- 照片和联系方式比例合理、清晰易读。
+- 照片位于独立页眉格中；页眉线只在该格下方绘制，绝不穿过照片。
+- 每个主区块标题下使用细分隔线；标题至蓝线固定 0pt，蓝线至正文保留可见但紧凑的 2–4pt 安全间距。项目之间保留 5–8pt 的块间距，避免项目标题与上一项目正文粘连。线条用于分组，不得形成正文侧栏或多栏阅读路径。
+- 不得裁切或孤立标题、项目要点、证书行。
+- 各区块节奏一致；页面底部不得拥挤页脚，也不得留出显眼空白块。
+- 个人信息固定为：姓名 20pt 可见加粗、职位 11.5pt 半粗、联系方式 10pt；模块标题 12pt、工作单位／职务和项目标题 11pt 均使用显式可见加粗，正文与日期 10pt 常规字重。
+- 照片页眉中，左侧个人信息相对照片垂直居中；教育逐条显示学校／学位与已授权起止年份。
+- 姓名行至电话行保留 20pt，电话行至地点行保留 15pt；照片相对原右对齐位置向左偏移 8pt。
+- 普通 10pt 正文固定为 **1.4 倍行距**；同一个工作/项目 bullet 的上下换行固定为 **1.3 倍行距**，相邻 bullet 之间固定为 **1.5 倍正文基准间距**：Typst 普通段落使用 `#set par(leading: 0.4em, spacing: 0.5pt)`，bullet 使用局部 `set par(leading: 0.3em, spacing: 5pt)`；DOCX 普通段落使用 `w:line=336`/`w:after=10`，bullet 使用 `w:line=312`/`w:after=100`，均为 `w:lineRule=auto`。每个工作或项目 bullet 均为独立段落；不得在 Reflow 中改变正文行距或叠加段后距。PDF trace/manifest 必须同时保留正文与 bullet 的基准字号、期望倍率和实测倍率，并记录相邻 bullet 间隔的实测范围；不能只用固定期望值代替倍率核验。工作 bullet 直接呈现业务动作与效果，不强制套用项目的背景／解决／结果标签。
+- 高管编辑风的正文与日期统一纯黑；姓名、目标职位、模块标题、工作单位／职务和项目标题使用蓝色显式加粗。项目结果、效率提升和关键交付结论只对证据支持的短语加黑粗体，避免整段变成黑块。
+- 加粗应有选择性，帮助扫描，而不是形成密集黑块。
+- 每个声明的加粗短语必须以显式粗体字重和轻描边输出，且优先覆盖技术成果、优化效果、指标、命名架构或关键控制规则；仅有 manifest 声明而 PDF 正文未见字重差异视为失败。
+- 最终 PNG 渲染不得存在 CJK 缺字、重叠或意外背景块。
+- QA 必须检查最终 artifact，而非只检查模板、内存对象或 trace 自报状态。DOCX 需验证 document.xml 中普通段落为 `w:line=336`/`w:after=10`、bullet 段落为 `w:line=312`/`w:after=100`，两者均为 `w:lineRule=auto`，并用 LibreOffice 实际渲染复核；未通过的文件进入 quarantine，不得生成交付 manifest。
+- PDF 四边最小边界按 36pt（1.27cm）比较，允许不超过 0.5pt 的 PDF/字体坐标转换噪声；低于 35.5pt 才判定为真实边距越界。每轮渲染前清理旧的 `geometry-qa.json`，并禁止将历史测量作为本轮结果。
+
+## 失败后的自动诊断
+
+门控失败后会在 quarantine 生成脱敏 `skillopt-event.json`，并进入统一 SkillOpt Controller。公开版式/交付错误走规则候选；内容密度错误走 `content_recovery`：超页先用冻结的 `compressed` 30–40 CJK 档重组，再按 JD 排名删除整项目；过疏（底部空白 >50pt）先用冻结的 `expanded` 50–130 CJK 档重组，再检查未选中的授权项目。40–50pt 底部空白均通过，且 `geometry-qa.json` 与最终 manifest 必须保留实际测量值。每个档位都重新跑全部 QA；如果同一运行先压缩后删项目，`content-recovery-trace.json.attempts` 追加保存两个动作。自动恢复最多实际应用一次；若仍不满足，必须请求用户授权更多材料或调整内容预算，不能循环重试。证据不足或候选耗尽后再生成精确补问；证据错误走 `evidence_review`。候选先在私有 runtime 运行 SkillOpt Validation Gate，验证失败即拒绝并冷却，不能覆盖活动 `SKILL.md`。

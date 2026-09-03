@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Frozen resume theme variables",
+  "type": "object",
+  "required": ["schema_version", "variant_id", "tokens"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "variant_id": {"enum": ["executive_editorial_a", "executive_editorial_b", "executive_editorial_c"]},
+    "tokens": {"type": "object"}
+  },
+  "additionalProperties": false
+}

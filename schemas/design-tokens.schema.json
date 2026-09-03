@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Approved Executive Editorial Resume Design",
+  "type": "object",
+  "required": ["schema_version", "variant_id", "tokens"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "variant_id": {"enum": ["executive_editorial_a", "executive_editorial_b", "executive_editorial_c"]},
+    "tokens": {
+      "type": "object",
+      "required": ["palette", "lines", "hierarchy"],
+      "properties": {
+        "palette": {"type": "object", "required": ["ink", "muted", "accent", "rule"]},
+        "lines": {"type": "object", "required": ["header_rule_pt", "section_rule_pt", "section_marker_width_pt", "section_marker_height_pt"]},
+        "hierarchy": {"type": "object", "required": ["date_color", "overview_color", "title_weight"]}
+      }
+    }
+  }
+}
