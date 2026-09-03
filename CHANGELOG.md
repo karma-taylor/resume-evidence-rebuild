@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.7 — 2026-09-03
+
+- Fixed the public Ubuntu PDF smoke environment by installing `poppler-utils`, which provides the `pdftoppm` binary required for raster bold QA.
+- `environment_doctor.py` now checks `pdftoppm` and reports it under `pdf.pdftoppm`, failing early with an actionable message when Poppler is missing.
+- Root cause was confirmed by the 1.0.6 CI diagnostics: Python 3.11–3.13 passed, and the render failed at `PDF_BOLD_NOT_RENDERED_ERROR` because `pdftoppm` was unavailable.
+
 ## 1.0.6 — 2026-09-03
 
 - Extended public PDF smoke diagnostics to include a truncated, path-redacted final render reason when the renderer fails before writing geometry QA. Resume text, private paths, and generated artifact contents remain excluded.

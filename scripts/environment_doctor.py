@@ -41,13 +41,15 @@ def main() -> int:
             available.append(args.font)
         version = subprocess.run([typst, "--version"], text=True, capture_output=True, check=False).stdout.strip()
     soffice = shutil.which("soffice") or shutil.which("libreoffice")
+    pdftoppm = shutil.which("pdftoppm")
     typst_version_ok = bool(version.startswith(f"typst {args.typst_version}"))
     payload = {
-        "status": "ok" if typst and typst_version_ok and not missing and available and (not args.require_docx or soffice) else "error",
+        "status": "ok" if typst and typst_version_ok and not missing and available and pdftoppm and (not args.require_docx or soffice) else "error",
         "python": sys.version.split()[0],
         "python_modules_missing": missing,
         "typst": {"path": typst, "version": version, "expected": args.typst_version, "version_ok": typst_version_ok},
         "font": {"requested": args.font, "available": bool(available)},
+        "pdf": {"pdftoppm": pdftoppm},
         "docx": {"required": args.require_docx, "executable": soffice},
     }
     if args.as_json:
@@ -61,6 +63,8 @@ def main() -> int:
             print(f"ERROR: missing Python modules: {', '.join(missing)}", file=sys.stderr)
         if not available:
             print(f"ERROR: required CJK font family missing: {args.font}; install regular and bold faces.", file=sys.stderr)
+        if not pdftoppm:
+            print("ERROR: pdftoppm is not on PATH; install Poppler for PDF raster QA.", file=sys.stderr)
         if args.require_docx and not soffice:
             print("ERROR: LibreOffice/soffice is not on PATH; install it for DOCX QA.", file=sys.stderr)
         if payload["status"] == "ok":

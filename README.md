@@ -42,6 +42,12 @@ python scripts/build_resume.py \
 
 ## 更新记录
 
+### 1.0.7 — 2026-09-03
+
+- 修复公共 CI PDF smoke 的实际环境缺口：Ubuntu runner 现在显式安装 `poppler-utils`，提供 PDF 粗体栅格 QA 所需的 `pdftoppm`。
+- `environment_doctor.py` 新增 `pdftoppm` 检查和机器可读的 `pdf.pdftoppm` 字段；缺少 Poppler 时在渲染前明确失败，不再等到构建阶段返回泛化 `RENDER_ERROR`。
+- 本次修复依据 1.0.6 诊断版本捕获的公共 CI 根因：Python 3.11–3.13 已通过，失败发生在 `PDF_BOLD_NOT_RENDERED_ERROR`。
+
 ### 1.0.6 — 2026-09-03
 
 - 继续完善公共 PDF smoke 的失败诊断：当渲染器在生成 `geometry-qa.json` 前失败时，CI 会在保留 route、错误码和布局状态的同时输出截断、脱敏后的最后一条失败原因；绝不输出简历正文、私有路径或生成文件内容。

@@ -16,6 +16,8 @@ python3 -m pip install -r scripts/requirements.txt
 
 从 Typst 官方发行版安装 Typst，并确保 `typst` 位于 `PATH`。中文简历需要同时具备常规与粗体字形的 `Microsoft YaHei` 字体；这是当前 Typst 与 DOCX 渲染器共同使用的确定性字体。
 
+PDF 几何与粗体栅格 QA 还需要 Poppler 的 `pdftoppm`：macOS 可通过 `brew install poppler` 安装，Debian/Ubuntu 可通过 `sudo apt-get install poppler-utils` 安装。`environment_doctor.py` 会在渲染前检查该命令。
+
 ## 验证环境
 
 ```bash
